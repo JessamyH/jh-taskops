@@ -6510,6 +6510,7 @@ function routineGenerate() {
         taskName: r.taskName || null,
         link: r.link || null,
         estMins: r.estMins || null,
+        starred: !!r.starred,
         done: false,
         ts: new Date().toISOString(),
         routineId: r.id
@@ -6569,6 +6570,13 @@ function routineToggleStar(idx) {
   const r = routines[idx];
   if (!r) return;
   r.starred = !r.starred;
+  // Today's and tomorrow's items are generated ahead of time, so sync the star onto them
+  const today = dailyLocalDate(0);
+  let synced = false;
+  dailyItems.forEach(i => {
+    if (i.routineId === r.id && !i.done && i.date >= today) { i.starred = r.starred; synced = true; }
+  });
+  if (synced) { dailySave(); dailyRender(); }
   routinesSaveStore(); routinesRenderList();
 }
 
