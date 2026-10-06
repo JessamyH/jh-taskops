@@ -700,10 +700,21 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
   .daily-add-row{flex-wrap:wrap}
   .daily-add-row>div[style*="position:relative"]{flex:1 1 150px!important;min-width:0}
   .daily-add-row .daily-task-select{flex:1 1 140px;min-width:0;width:auto}
-  .proj-list-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .proj-list-wrap>*{min-width:700px}
-  .proj-list-head,.proj-list-row{grid-template-columns:minmax(240px,1fr) 118px 112px 84px 84px}
-  .proj-list-due{padding-right:12px}
+  /* Projects – kanban: stack the status columns vertically, full width */
+  .kanban-wrap{overflow:visible}
+  .kanban-board{grid-template-columns:minmax(0,1fr);min-width:0;gap:12px}
+  .kanban-col{min-height:0}
+  .kanban-card:hover{transform:none}
+  /* Meeting: stack the notes panel under the main column, full width */
+  .mtg-layout{flex-direction:column;align-items:stretch!important;gap:14px!important}
+  .mtg-notes-col{position:static!important;flex:none!important;width:100%}
+  /* Projects – list: header becomes sort chips, each row a two-line card */
+  .proj-list-head{display:flex;flex-wrap:wrap;gap:6px 14px;padding:9px 12px}
+  .proj-list-th{justify-content:flex-start!important}
+  .proj-list-row{grid-template-columns:auto auto auto minmax(0,1fr);column-gap:12px;row-gap:6px;padding:11px 12px}
+  .proj-list-row>:first-child{grid-column:1/-1}
+  .proj-list-due{padding-right:0}
+  .proj-list-focus{padding:0}
   .task-row .task-name{min-width:0!important}
   #ai-key-banner{flex-wrap:wrap}
   #ai-key-banner>div{flex:1 1 100%!important;min-width:0}
@@ -1038,7 +1049,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
     <!-- Meeting Assistant -->
     <div id="view-meeting" style="display:none">
 
-      <div style="display:flex;gap:18px;align-items:flex-start">
+      <div class="mtg-layout" style="display:flex;gap:18px;align-items:flex-start">
       <div style="flex:2;min-width:0">
 
         <div id="mtg-key-banner" style="display:none;background:#fff8e7;border:1.5px solid var(--amber);border-radius:12px;padding:14px 18px;margin-bottom:18px;align-items:center;gap:14px;flex-wrap:wrap">
@@ -1137,7 +1148,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
       </div><!-- end left col -->
 
         <!-- Right: Quick Notes -->
-        <div style="flex:1;min-width:0;position:sticky;top:20px;align-self:stretch;display:flex;flex-direction:column;padding-bottom:14px">
+        <div class="mtg-notes-col" style="flex:1;min-width:0;position:sticky;top:20px;align-self:stretch;display:flex;flex-direction:column;padding-bottom:14px">
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);flex:1;display:flex;flex-direction:column">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);background:var(--surface2)">
               <div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase">Notes</div>
