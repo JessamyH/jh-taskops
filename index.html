@@ -736,7 +736,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
     <button class="nav-item" onclick="setView('ideas',this)" id="nav-ideas"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg></span> Ideas</button>
     <div class="nav-section">Focus</div>
     <button class="nav-item" onclick="setView('pomodoro',this)" id="nav-pomodoro"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg></span> Pomodoro</button>
-    <button class="nav-item" onclick="setView('timeline',this)" id="nav-timeline"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg></span> Timeline</button>
+    <button class="nav-item" onclick="setView('timeline',this)" id="nav-timeline"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg></span> Calendar</button>
     <button class="nav-item" onclick="setView('weekly',this)" id="nav-weekly"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span> Report</button>
     <div class="nav-section">AI</div>
     <button class="nav-item" onclick="setView('ai',this)" id="nav-ai"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg></span> AI Assistant</button>
@@ -2167,7 +2167,7 @@ function render() {
 }
 
 // ── View switching
-const viewTitles = {dashboard:'Dashboard', kanban:'Projects', daily:'Daily List', pomodoro:'Focus Timer', weekly:'Report', timeline:'Timeline', ai:'AI Assistant', ideas:'Ideas', feedback:'Feedback', meeting:'Meeting Assistant'};
+const viewTitles = {dashboard:'Dashboard', kanban:'Projects', daily:'Daily List', pomodoro:'Focus Timer', weekly:'Report', timeline:'Calendar', ai:'AI Assistant', ideas:'Ideas', feedback:'Feedback', meeting:'Meeting Assistant'};
 
 // ── User Name Edit ──
 function startEditUserName() {
@@ -3201,6 +3201,12 @@ function tlJumpToDate(val) {
   tlWeekOffset = Math.round((pickMon - curMon) / (7 * 86400000));
   tlRender();
 }
+// Color a session by its project's first tag so blocks match the project's
+// chip on the board; untagged/unknown projects fall back to a name hash.
+function tlColorIndex(taskId, name) {
+  const t = (taskId != null && tasks.find(x => x.id === taskId)) || tasks.find(x => x.name === name);
+  return tagColorIndex(t && t.tags && t.tags.length ? t.tags[0] : name);
+}
 function tlFmtHour(h) {
   if (h === 0 || h === 24) return '12am';
   if (h === 12) return '12pm';
@@ -3312,7 +3318,7 @@ function tlRender() {
       const left = 'calc(' + (s._col * colW) + '% + 2px)';
       const width = 'calc(' + colW + '% - 4px)';
       const name = s.taskName || 'Others';
-      const ci = tagColorIndex(name);
+      const ci = tlColorIndex(s.taskId, name);
       const startStr = new Date(s.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       const title = name + ' · ' + startStr + ' · ' + s.mins + 'm' + (s.note ? ' — ' + s.note : '');
       return '<div class="tl-block tc-' + ci + '" style="top:' + top + 'px;left:' + left + ';width:' + width + ';height:' + height + 'px" title="' + title.replace(/"/g,'&quot;') + '">'
@@ -3332,15 +3338,16 @@ function tlRender() {
   bodyEl.scrollTop = 0;
 
   // Legend doubles as the "distribution by project" breakdown for the week
-  const byName = {};
+  const byName = {}, nameColor = {};
   allSessions.forEach(s => {
     const name = s.taskName || 'Others';
     byName[name] = (byName[name] || 0) + (s.mins || 0);
+    if (nameColor[name] === undefined) nameColor[name] = tlColorIndex(s.taskId, name);
   });
   const legendItems = Object.keys(byName).sort((a, b) => byName[b] - byName[a]);
   if (legendEl) legendEl.innerHTML = legendItems.map(name => {
     const mins = byName[name];
-    const ci = tagColorIndex(name);
+    const ci = nameColor[name];
     const h = Math.floor(mins/60), m = mins%60;
     return '<div class="tl-legend-chip"><span class="tl-legend-dot tc-' + ci + '"></span>' + name + '<span class="tl-legend-val">' + (h ? h+'h ' : '') + m + 'm</span></div>';
   }).join('');
