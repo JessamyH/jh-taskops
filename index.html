@@ -255,7 +255,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
 .daily-stat-lbl{font-size:11px;color:var(--muted);margin-top:1px}
 .backlog-item{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-radius:0 9px 9px 0;border-left:3px solid var(--sage2);background:rgba(61,107,80,.04);border-top:1px solid rgba(61,107,80,.12);border-right:1px solid rgba(61,107,80,.12);border-bottom:1px solid rgba(61,107,80,.12);font-size:12px;color:var(--text2)}
 .fb-item{transition:opacity .15s,border-color .15s,background .15s}
-.fb-item.drag-over{border-color:var(--sage);background:var(--surface2)}
+.fb-item.drag-over,.routine-item.drag-over{border-color:var(--sage);background:var(--surface2)}
 .backlog-item-row1{display:flex;align-items:center;gap:6px}
 .backlog-item-row2{display:flex;align-items:center;gap:6px}
 .backlog-item-text{flex:1;font-size:12px;color:var(--text);font-weight:500;line-height:1.35;word-break:break-word;white-space:normal}
@@ -6528,7 +6528,14 @@ function routinesRenderList() {
           ? `<span class="daily-item-tag" style="${tagStyle}flex-shrink:0" title="${r.taskName}">${r.taskName.length > 22 ? r.taskName.slice(0,22)+'…' : r.taskName}</span>`
           : '';
         const estHtml = r.estMins ? `<span class="daily-item-est set" style="cursor:default;flex-shrink:0">${estFmt(r.estMins)}</span>` : '';
-        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer" onclick="routineOpenEdit(${idx})">
+        return `<div class="routine-item" id="ritem-${idx}" draggable="true"
+            ondragstart="routineDragStart(event,${idx})"
+            ondragover="routineDragOver(event,${idx})"
+            ondragleave="routineDragLeave(event)"
+            ondrop="routineDrop(event,${idx})"
+            ondragend="routineDragEnd(event)"
+            style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px 10px ${r.starred ? '6px' : '8px'};border:1px solid var(--border);border-left:${r.starred ? '3px solid var(--amber)' : '1px solid var(--border)'};border-radius:10px;background:var(--surface);cursor:grab" onclick="routineOpenEdit(${idx})">
+          <span style="color:var(--muted2);font-size:13px;line-height:1;flex-shrink:0;letter-spacing:-1px" title="Drag to reorder">⠿</span>
           <div style="min-width:0;flex:1">
             <div style="font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px">
               <span style="overflow:hidden;text-overflow:ellipsis">${r.text}</span>
@@ -6538,12 +6545,52 @@ function routinesRenderList() {
           </div>
           ${estHtml}
           ${tagHtml}
+          <button onclick="event.stopPropagation();routineToggleStar(${idx})" style="background:none;border:none;cursor:pointer;font-size:15px;padding:0;line-height:1;flex-shrink:0;color:${r.starred ? 'var(--amber)' : '#B4B2A9'}" title="${r.starred ? 'Unstar' : 'Star'}">${r.starred ? '★' : '☆'}</button>
           <span style="font-size:13px;color:var(--muted2);flex-shrink:0">›</span>
         </div>`;
       }).join('')}</div>`;
   el.innerHTML = `<div style="font-size:12px;color:var(--muted2);margin-bottom:12px;flex-shrink:0">Recurring tasks that auto-add to today's list on the days you pick.</div>
     <div style="flex:1;min-height:0;overflow-y:auto" class="scroll-hide">${listHtml}</div>
     <button class="btn btn-primary" onclick="routineOpenEdit()" style="margin-top:12px;flex-shrink:0">+ New Routine</button>`;
+}
+
+function routineToggleStar(idx) {
+  const r = routines[idx];
+  if (!r) return;
+  r.starred = !r.starred;
+  routinesSaveStore(); routinesRenderList();
+}
+
+let _routineDragIdx = null;
+function routineDragStart(e, idx) {
+  _routineDragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => { const el = document.getElementById('ritem-' + idx); if (el) { el.style.opacity = '0.4'; el.style.cursor = 'grabbing'; } }, 0);
+}
+function routineDragOver(e, idx) {
+  e.preventDefault();
+  if (_routineDragIdx === idx) return;
+  document.querySelectorAll('.routine-item').forEach(el => el.classList.remove('drag-over'));
+  const el = document.getElementById('ritem-' + idx);
+  if (el) el.classList.add('drag-over');
+}
+function routineDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function routineDrop(e, toIdx) {
+  e.preventDefault();
+  if (_routineDragIdx === null || _routineDragIdx === toIdx) return;
+  const [moved] = routines.splice(_routineDragIdx, 1);
+  routines.splice(toIdx, 0, moved);
+  routinesSaveStore(); routinesRenderList();
+}
+function routineDragEnd(e) {
+  _routineDragIdx = null;
+  document.querySelectorAll('.routine-item').forEach(el => {
+    el.classList.remove('drag-over');
+    el.style.opacity = '1';
+    el.style.cursor = 'grab';
+  });
 }
 
 function routineRenderDayChips() {
