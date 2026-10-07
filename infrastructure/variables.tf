@@ -5,7 +5,7 @@ variable "aws_region" {
 }
 
 variable "aws_account_id" {
-  description = "AWS account ID Terraform is allowed to manage (Jessamy AWS Lab)."
+  description = "AWS account ID Terraform is allowed to manage."
   type        = string
   default     = "956519721376"
 }
