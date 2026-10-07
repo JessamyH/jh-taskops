@@ -61,8 +61,10 @@ resource "aws_iam_role_policy" "terraform_plan" {
         Effect = "Allow"
         Action = [
           "s3:GetBucket*",
+          "s3:GetAccelerateConfiguration",
           "s3:GetEncryptionConfiguration",
           "s3:GetLifecycleConfiguration",
+          "s3:GetObjectLockConfiguration",
           "s3:GetReplicationConfiguration",
           "s3:ListBucket",
         ]
