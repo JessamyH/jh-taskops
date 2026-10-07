@@ -1,0 +1,118 @@
+name: Terraform
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/terraform.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/terraform.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+  AWS_REGION: ap-southeast-2
+
+defaults:
+  run:
+    shell: bash
+    working-directory: infrastructure
+
+jobs:
+  validate:
+    name: Format and validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.13.5
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -lockfile=readonly
+      - run: terraform validate -no-color
+
+  plan:
+    name: Plan pull request
+    needs: validate
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: terraform-jh-taskops-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.13.5
+          terraform_wrapper: false
+      - name: Assume Plan role using OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::956519721376:role/jh-taskops-prod-terraform-plan
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '956519721376'
+          role-session-name: terraform-plan-${{ github.run_id }}
+          unset-current-credentials: true
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+      - run: terraform init -lockfile=readonly
+      - run: terraform plan -no-color -lock-timeout=5m
+
+  apply:
+    name: Apply main
+    needs: validate
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: terraform-jh-taskops-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.13.5
+          terraform_wrapper: false
+      - name: Assume Apply role using OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::956519721376:role/jh-taskops-prod-terraform-apply
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '956519721376'
+          role-session-name: terraform-apply-${{ github.run_id }}
+          unset-current-credentials: true
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+      - run: terraform init -lockfile=readonly
+      - name: Plan main commit
+        run: terraform plan -no-color -lock-timeout=5m -out=deploy.tfplan
+      - name: Apply saved plan
+        run: terraform apply -no-color -lock-timeout=5m deploy.tfplan
