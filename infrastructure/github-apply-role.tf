@@ -64,6 +64,21 @@ resource "aws_iam_role_policy" "terraform_apply" {
         Action   = ["cloudfront:UpdateOriginAccessControl"]
         Resource = aws_cloudfront_origin_access_control.frontend.arn
       },
+      {
+        Sid      = "SyncFrontendObjects"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:DeleteObject"]
+        Resource = "${aws_s3_bucket.frontend.arn}/*"
+      },
+      {
+        Sid    = "InvalidateFrontendCache"
+        Effect = "Allow"
+        Action = [
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+        ]
+        Resource = aws_cloudfront_distribution.frontend.arn
+      },
     ])
   })
 }
