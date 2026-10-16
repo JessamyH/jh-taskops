@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - 'infrastructure/**'
+      - 'index.html'
       - '.github/workflows/terraform.yml'
   push:
     branches: [main]
     paths:
       - 'infrastructure/**'
+      - 'index.html'
       - '.github/workflows/terraform.yml'
   workflow_dispatch:
 
@@ -116,3 +118,52 @@ jobs:
         run: terraform plan -no-color -lock-timeout=5m -out=deploy.tfplan
       - name: Apply saved plan
         run: terraform apply -no-color -lock-timeout=5m deploy.tfplan
+
+  deploy-frontend:
+    name: Deploy frontend
+    needs: apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: frontend-jh-taskops-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.13.5
+          terraform_wrapper: false
+      - name: Assume Apply role using OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::956519721376:role/jh-taskops-prod-terraform-apply
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '956519721376'
+          role-session-name: frontend-deploy-${{ github.run_id }}
+          unset-current-credentials: true
+      - run: terraform init -lockfile=readonly
+      - name: Read deployment targets
+        id: targets
+        run: |
+          echo "bucket=$(terraform output -raw frontend_bucket_name)" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$(terraform output -raw frontend_distribution_id)" >> "$GITHUB_OUTPUT"
+      - name: Sync frontend to S3
+        working-directory: .
+        run: >-
+          aws s3 sync . "s3://${{ steps.targets.outputs.bucket }}"
+          --delete --exclude "*" --include "index.html"
+      - name: Invalidate CloudFront cache
+        run: |
+          invalidation_id=$(aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.targets.outputs.distribution_id }}" \
+            --paths "/*" \
+            --query 'Invalidation.Id' --output text)
+          echo "Waiting for invalidation $invalidation_id"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${{ steps.targets.outputs.distribution_id }}" \
+            --id "$invalidation_id"
