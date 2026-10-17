@@ -73,7 +73,10 @@ flowchart LR
 - Remote state with locking works locally and in GitHub Actions
 - GitHub Actions assumes the Plan and Apply roles through OIDC without access keys
 - Pull request plan workflow runs successfully
+- Merging a frontend change to `main` runs Terraform apply, syncs `index.html` to S3 and completes a CloudFront invalidation
+- Live site serves the new version after the automated deploy
 - Repository and git history contain no AWS credentials
+- Final `terraform plan` shows no changes
 
 ## License
 
