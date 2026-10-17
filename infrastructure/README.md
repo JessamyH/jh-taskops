@@ -81,7 +81,6 @@ contents; future PR workflows must gate untrusted fork PRs before granting AWS a
 
 The role ARN is `arn:aws:iam::956519721376:role/jh-taskops-prod-terraform-plan`.
 Permissions cover resources defined here, including reading both Terraform roles.
-Actual OIDC assumption and planning under this role remain to be tested in GitHub Actions.
 
 ## Bootstrap the Terraform Apply role
 
@@ -99,12 +98,13 @@ The earlier bootstrap counts describe each incremental step, not a fresh deploym
 `github-apply-role.tf` trusts only this repository's main-branch subject, without a GitHub
 environment. It shares the Plan role's read and lock permissions and adds state writes
 and updates to the existing frontend bucket configuration, distribution, and OAC.
+It can also upload and delete objects in the frontend bucket and create CloudFront
+invalidations for the frontend distribution.
 Its ARN is `arn:aws:iam::956519721376:role/jh-taskops-prod-terraform-apply`.
 
 This role cannot modify IAM/OIDC permissions, create replacement website resources,
-upload website files, or manage the associated WAF Web ACL. IAM/OIDC changes require the
-local administrative profile; additional deployment capabilities require explicitly
-extending the policy.
+or manage the associated WAF Web ACL. IAM/OIDC changes require the local administrative
+profile; additional deployment capabilities require explicitly extending the policy.
 
 ## GitHub Actions
 
@@ -113,8 +113,8 @@ PRs targeting main run formatting and validation without AWS credentials. Intern
 also assume the Plan role through OIDC, log the AWS identity, and run a remote-state plan.
 Fork PRs and Dependabot PRs do not run the AWS plan job.
 
-Infrastructure/workflow changes pushed to main automatically assume the Apply role,
-create a saved plan, and apply that exact plan in the same job. Review changes before
+Infrastructure, `index.html`, and workflow changes pushed to main automatically assume
+the Apply role, create a saved plan, and apply that exact plan in the same job. Review changes before
 merging. Manual workflow dispatch on main also runs deployment; dispatch on other
 branches runs validation only. There is no GitHub environment attached to these jobs,
 so OIDC uses the PR/branch subjects configured in IAM.
@@ -123,8 +123,22 @@ The AWS jobs share a concurrency group and do not cancel an active Terraform ope
 Both use the S3 backend's native locking. No AWS access-key secrets are needed, and no
 state or binary plan is uploaded as an artifact. Plan output is visible in Actions logs.
 
-After pushing the branch, open a PR to main and verify that the Plan job's STS identity
-is the Plan role and the plan succeeds. After merging, verify the main job assumes the
-Apply role and completes. These live OIDC and permission checks remain pending until
-the workflows actually run. IAM/OIDC changes must first be applied locally because the
-Apply role intentionally cannot grant or modify IAM permissions.
+IAM/OIDC changes must first be applied locally because the Apply role intentionally
+cannot grant or modify IAM permissions.
+
+## Frontend deployment
+
+After the apply job succeeds on main, the `deploy-frontend` job assumes the Apply role,
+reads the `frontend_bucket_name` and `frontend_distribution_id` outputs from
+`outputs.tf`, and syncs `index.html` to the frontend bucket. `--delete` is limited to
+the included file, so other bucket objects are left untouched. The job then invalidates
+`/*` on CloudFront and waits for the invalidation to complete, so a passing job means
+the new version is being served.
+
+The frontend job uses its own concurrency group, separate from Terraform operations.
+To confirm a deployment, check the upload time and latest invalidation:
+
+```sh
+aws s3 ls s3://jh-taskops-frontend/
+aws cloudfront list-invalidations --distribution-id EXCBTOO7K393B --max-items 3
+```

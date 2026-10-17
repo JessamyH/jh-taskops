@@ -41,6 +41,40 @@ flowchart LR
 - GitHub Gist sync continues to work
 - Claude AI integration continues to work
 
+### Phase 2: Infrastructure as Code and CI/CD
+
+The existing AWS resources are managed with Terraform, and every merge to `main` deploys automatically through GitHub Actions. No AWS access keys are stored in GitHub or in the repository.
+
+```mermaid
+flowchart LR
+    Dev([Developer]) -->|Pull request| PR[PR checks]
+    PR -->|fmt, validate, plan| PlanRole[Plan role<br/>read-only]
+    Dev -->|Merge| Main[main branch]
+    Main -->|terraform apply| ApplyRole[Apply role]
+    ApplyRole --> Infra[S3 + CloudFront]
+    Main -->|Sync index.html| S3[(Frontend bucket)]
+    Main -->|Invalidate cache| CF[CloudFront]
+    PlanRole -.-> State[(Remote state<br/>S3 + lockfile)]
+    ApplyRole -.-> State
+```
+
+- **Terraform** manages the existing S3 bucket, CloudFront distribution and origin access control, which were imported without changes. See [infrastructure/README.md](infrastructure/README.md).
+- **Remote state** is stored in a dedicated S3 bucket with versioning, encryption, Block Public Access and native state locking (`use_lockfile`).
+- **GitHub OIDC** lets workflows assume short-lived AWS roles. The read-only Plan role runs on pull requests; the Apply role trusts only `main`.
+- **Pull requests** run `terraform fmt -check`, `terraform validate` and `terraform plan`.
+- **Merges to `main`** apply the Terraform plan, sync `index.html` to S3 and invalidate the CloudFront cache.
+- **Cost control** uses an AWS Budget with alert thresholds.
+
+**Definition of done:** a frontend change merged to `main` reaches the live site automatically, infrastructure changes are reviewed through a Terraform plan on each pull request, and the repository contains no AWS credentials.
+
+**Verified:**
+
+- Existing AWS resources imported into Terraform with `terraform plan` showing no changes
+- Remote state with locking works locally and in GitHub Actions
+- GitHub Actions assumes the Plan and Apply roles through OIDC without access keys
+- Pull request plan workflow runs successfully
+- Repository and git history contain no AWS credentials
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
