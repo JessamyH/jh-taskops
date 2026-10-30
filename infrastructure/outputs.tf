@@ -17,3 +17,8 @@ output "certificate_arn" {
   description = "ACM certificate (us-east-1) for the custom domain."
   value       = aws_acm_certificate.frontend.arn
 }
+
+output "cloudfront_domain_name" {
+  description = "Target for the taskops CNAME in Cloudflare."
+  value       = aws_cloudfront_distribution.frontend.domain_name
+}

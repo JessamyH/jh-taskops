@@ -8,3 +8,9 @@ resource "aws_acm_certificate" "frontend" {
     create_before_destroy = true
   }
 }
+
+# Makes apply wait until the certificate is ISSUED before CloudFront uses it.
+resource "aws_acm_certificate_validation" "frontend" {
+  provider        = aws.us_east_1
+  certificate_arn = aws_acm_certificate.frontend.arn
+}
