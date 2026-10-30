@@ -65,6 +65,17 @@ resource "aws_iam_role_policy" "terraform_apply" {
         Resource = aws_cloudfront_origin_access_control.frontend.arn
       },
       {
+        # RequestCertificate has no resource ARN; conditions limit it to the frontend domain.
+        Sid      = "RequestFrontendCertificate"
+        Effect   = "Allow"
+        Action   = ["acm:RequestCertificate"]
+        Resource = "*"
+        Condition = {
+          "ForAllValues:StringEquals" = { "acm:DomainNames" = [var.domain_name] }
+          StringEquals                = { "acm:ValidationMethod" = "DNS" }
+        }
+      },
+      {
         Sid      = "SyncFrontendObjects"
         Effect   = "Allow"
         Action   = ["s3:PutObject", "s3:DeleteObject"]
