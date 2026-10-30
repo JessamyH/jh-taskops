@@ -21,3 +21,9 @@ variable "environment" {
   type        = string
   default     = "prod"
 }
+
+variable "domain_name" {
+  description = "Custom domain for the frontend (DNS is on Cloudflare)."
+  type        = string
+  default     = "taskops.jessamyh.com"
+}

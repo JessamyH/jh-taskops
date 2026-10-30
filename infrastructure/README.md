@@ -106,6 +106,25 @@ This role cannot modify IAM/OIDC permissions, create replacement website resourc
 or manage the associated WAF Web ACL. IAM/OIDC changes require the local administrative
 profile; additional deployment capabilities require explicitly extending the policy.
 
+## Custom domain certificate
+
+`acm.tf` requests an ACM certificate for `var.domain_name` (`taskops.jessamyh.com`)
+through the `aws.us_east_1` provider alias, because CloudFront only accepts certificates
+from us-east-1. DNS is on Cloudflare and managed by hand: add the record from the
+`acm_validation_records` output as a CNAME set to DNS only (not proxied). Keep it, or
+the certificate can't renew automatically.
+
+The Plan role can describe certificates in us-east-1, and the Apply role can request a
+DNS-validated certificate only for `var.domain_name`. The Apply role cannot delete
+certificates, so replacing the certificate needs the local administrative profile.
+Apply these policy changes locally before merging, as with other IAM changes:
+
+```sh
+terraform plan -target=aws_iam_role_policy.terraform_plan \
+  -target=aws_iam_role_policy.terraform_apply -out=acm-iam.tfplan
+terraform apply acm-iam.tfplan
+```
+
 ## GitHub Actions
 
 `.github/workflows/terraform.yml` pins Terraform 1.13.5 and action commit SHAs.

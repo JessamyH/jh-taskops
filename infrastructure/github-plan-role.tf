@@ -85,6 +85,16 @@ resource "aws_iam_role_policy" "terraform_plan" {
         ]
       },
       {
+        # Wildcard: the certificate ARN is only known after creation.
+        Sid    = "ReadCertificates"
+        Effect = "Allow"
+        Action = [
+          "acm:DescribeCertificate",
+          "acm:ListTagsForCertificate",
+        ]
+        Resource = "arn:aws:acm:us-east-1:${var.aws_account_id}:certificate/*"
+      },
+      {
         Sid    = "ReadGitHubIdentityProvider"
         Effect = "Allow"
         Action = [
