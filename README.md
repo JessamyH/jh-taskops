@@ -10,7 +10,7 @@ This repository serves as a space for continuous learning, experimentation, and 
 
 ## Live Demo
 
-**[Open JH TaskOps](https://dc46h4g5wl78u.cloudfront.net)**
+**[Open JH TaskOps](https://taskops.jessamyh.com)**
 
 ## Architecture
 
@@ -77,6 +77,25 @@ flowchart LR
 - Live site serves the new version after the automated deploy
 - Repository and git history contain no AWS credentials
 - Final `terraform plan` shows no changes
+
+### Custom domain
+
+The app is served at `taskops.jessamyh.com`, using the same setup as JH Gallery. DNS stays on Cloudflare; the certificate and CloudFront settings are managed by Terraform and applied through the Phase 2 pipeline.
+
+```mermaid
+flowchart LR
+    User([Browser]) -->|DNS lookup| CFDNS[Cloudflare DNS<br/>DNS only]
+    CFDNS -->|CNAME| CF[CloudFront]
+    ACM[ACM certificate<br/>us-east-1] -->|sni-only, TLSv1.2_2021| CF
+    CFDNS -.->|Validation CNAME| ACM
+```
+
+- **ACM** issues the certificate in us-east-1, which CloudFront requires, through a Terraform provider alias. The domain is set in the `domain_name` variable.
+- **DNS validation** uses a CNAME added by hand in Cloudflare. It stays in place so the certificate can renew automatically.
+- **CloudFront** serves the domain as an alias with SNI and a minimum of TLS 1.2 (`TLSv1.2_2021`).
+- **IAM** scope stays narrow: the Plan role can only read certificates, and the Apply role can only request a DNS-validated certificate for this domain.
+
+**Definition of done:** `https://taskops.jessamyh.com` serves the app with a valid ACM certificate, the certificate can renew automatically, and `terraform plan` shows no changes.
 
 ## License
 
