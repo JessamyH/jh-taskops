@@ -125,6 +125,19 @@ terraform plan -target=aws_iam_role_policy.terraform_plan \
 terraform apply acm-iam.tfplan
 ```
 
+`aws_acm_certificate_validation.frontend` makes apply wait until the certificate is
+`ISSUED`, then the distribution serves `var.domain_name` with that certificate
+(`sni-only`, `TLSv1.2_2021`). Merge this only after the validation CNAME is in
+Cloudflare and the certificate shows `ISSUED`, so the apply job doesn't wait on DNS:
+
+```sh
+aws acm describe-certificate --region us-east-1 \
+  --certificate-arn "$(terraform output -raw certificate_arn)" \
+  --query Certificate.Status
+```
+
+After the apply, add `taskops` as a DNS-only CNAME to the `cloudfront_domain_name` output.
+
 ## GitHub Actions
 
 `.github/workflows/terraform.yml` pins Terraform 1.13.5 and action commit SHAs.

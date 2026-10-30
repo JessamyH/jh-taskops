@@ -16,6 +16,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   default_root_object = "index.html"
   http_version        = "http2"
   price_class         = "PriceClass_All"
+  aliases             = [var.domain_name]
 
   # Preserve the existing association; the Web ACL itself is not managed here.
   web_acl_id = "arn:aws:wafv2:us-east-1:${var.aws_account_id}:global/webacl/CreatedByCloudFront-863cda2d/5f54f480-cc14-4ab4-baec-2aafc7d2c27c"
@@ -49,8 +50,9 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
-    minimum_protocol_version       = "TLSv1"
+    acm_certificate_arn      = aws_acm_certificate_validation.frontend.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   tags = {
