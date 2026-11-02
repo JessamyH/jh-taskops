@@ -3333,13 +3333,13 @@ function tlRender() {
     return '<div class="tl-week-day-head' + (isToday ? ' today' : '') + '"><div class="tl-wdh-dow">' + TL_DOW[i] + '</div><div class="tl-wdh-num">' + dd.getDate() + '</div><div class="tl-wdh-mins">' + minsStr + '</div></div>';
   }).join('');
 
-  // Visible hour range: pad an hour around the week's earliest/latest session, min 4h tall.
-  // An empty week still draws a 9am–6pm grid so the card isn't a blank void.
+  // Visible hour range: always at least 9am–6pm (same grid as an empty week), widened
+  // to pad an hour around the week's earliest/latest session when they fall outside it.
   const flat = byDay.flat();
   const isEmpty = !flat.length;
-  let rangeStart = isEmpty ? 9*60 : Math.max(0, Math.floor(Math.min.apply(null, flat.map(s => s.startMin)) / 60) - 1) * 60;
-  let rangeEnd = isEmpty ? 18*60 : Math.min(24, Math.ceil(Math.max.apply(null, flat.map(s => s.endMin)) / 60) + 1) * 60;
-  if (rangeEnd - rangeStart < 240) rangeEnd = Math.min(24*60, rangeStart + 240);
+  const firstStart = isEmpty ? 9*60 : Math.max(0, Math.floor(Math.min.apply(null, flat.map(s => s.startMin)) / 60) - 1) * 60;
+  const rangeStart = Math.min(9*60, firstStart);
+  const rangeEnd = isEmpty ? 18*60 : Math.max(18*60, Math.min(24, Math.ceil(Math.max.apply(null, flat.map(s => s.endMin)) / 60) + 1) * 60);
   const pxPerMin = 1;
   const trackHeight = (rangeEnd - rangeStart) * pxPerMin;
 
@@ -3385,7 +3385,7 @@ function tlRender() {
   if (isEmpty) { if (legendEl) legendEl.innerHTML = ''; return; }
 
   // Scroll so the earliest session is in view rather than the top of a padded range
-  bodyEl.scrollTop = 0;
+  bodyEl.scrollTop = (firstStart - rangeStart) * pxPerMin;
 
   // Legend doubles as the "distribution by project" breakdown for the week
   const byName = {}, nameColor = {};
