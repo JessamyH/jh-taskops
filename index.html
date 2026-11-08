@@ -1413,7 +1413,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
         <div class="form-group">
           <label class="form-label">Description <span style="color:var(--muted2);font-weight:400">(optional)</span></label>
           <div style="position:relative">
-            <textarea class="form-textarea" id="idea-desc" placeholder="Any context, links, or details…" style="padding-bottom:32px"></textarea>
+            <textarea class="form-textarea" id="idea-desc" placeholder="Any context, links, or details…"></textarea>
           </div>
         </div>
         <div class="modal-actions" style="justify-content:flex-end">
@@ -1604,7 +1604,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
       </div>
     </div>
     <datalist id="tag-suggestions"></datalist>
-    <div class="form-group"><label class="form-label">Notes</label><div style="position:relative"><textarea class="form-textarea" id="f-notes" placeholder="Any details..." style="padding-bottom:32px"></textarea></div></div>
+    <div class="form-group"><label class="form-label">Notes</label><div style="position:relative"><textarea class="form-textarea" id="f-notes" placeholder="Any details..."></textarea></div></div>
     <div class="modal-actions" style="justify-content:flex-end">
       <button class="btn" id="task-delete-action" style="display:none;border-color:rgba(138,90,90,.3);color:var(--rose);background:rgba(138,90,90,.06)" onclick="deleteTaskFromModal()">✕ Delete</button>
       <div style="display:flex;gap:8px">
@@ -2567,7 +2567,7 @@ function pdpRenderOverview(body, footer) {
     <div class="pdp-field">
       <span class="pdp-label">Notes</span>
       <div style="position:relative">
-        <textarea class="form-textarea" id="pdp-f-notes" style="min-height:80px;padding-bottom:32px" onblur="pdpAutosaveOverview()">${escHtml(task.notes || '')}</textarea>
+        <textarea class="form-textarea" id="pdp-f-notes" style="min-height:80px" onblur="pdpAutosaveOverview()">${escHtml(task.notes || '')}</textarea>
       </div>
     </div>
     <div style="margin-top:4px">
