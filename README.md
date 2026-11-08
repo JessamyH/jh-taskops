@@ -1,110 +1,109 @@
 # JH TaskOps
 
-A cloud engineering project built upon [JH Task Tracker](https://github.com/JessamyH/jh-task-tracker), exploring cloud infrastructure, DevOps automation and AI integration.
+A personal task and planning app, deployed on AWS with infrastructure as code and automated CI/CD.
 
-## Overview
+> **Status:** Phase 2.1 complete.
 
-JH TaskOps is a personal engineering project focused on evolving an existing productivity application through hands-on cloud and DevOps exploration.
+**Live:** https://taskops.jessamyh.com
 
-This repository serves as a space for continuous learning, experimentation, and technical improvement.
+JH TaskOps builds on [JH Task Tracker](https://github.com/JessamyH/jh-task-tracker). The app itself is a single static page; this repository focuses on how it is hosted, secured and delivered on AWS.
 
-## Live Demo
+## Features
 
-**[Open JH TaskOps](https://taskops.jessamyh.com)**
+- Task management with a weekly calendar view
+- Data stored in the browser (LocalStorage), with optional sync through GitHub Gist
+- AI features using your own Claude API key
 
 ## Architecture
 
-### Phase 1: AWS frontend deployment
+```mermaid
+flowchart LR
+    User([Browser]) -->|DNS| CFDNS[Cloudflare DNS]
+    CFDNS -->|CNAME| CF[CloudFront<br/>HTTPS, TLS 1.2+]
+    ACM[ACM certificate<br/>us-east-1] --> CF
+    CF -->|Origin access control| S3[(Private S3 bucket)]
+    User -.->|Optional sync| GH[GitHub Gist API]
+    User -.->|Optional AI| AI[Claude API]
+```
 
-The frontend is a single static page (`index.html`) stored in a private S3 bucket and served to users through CloudFront over HTTPS.
+Key decisions:
+
+- **Private origin:** the S3 bucket is not public. CloudFront is the only entry point and reads from S3 through origin access control (OAC).
+- **Custom domain:** DNS stays on Cloudflare (DNS only). The ACM certificate is issued in us-east-1 through a Terraform provider alias and renews automatically.
+- **Imported, not recreated:** the existing S3 bucket, CloudFront distribution and OAC were imported into Terraform, with `terraform plan` showing no changes.
+- **Remote state:** Terraform state lives in a dedicated S3 bucket with versioning, encryption, Block Public Access and native locking (`use_lockfile`).
+- **Cost control:** an AWS Budget with alert thresholds.
+
+## CI/CD
 
 ```mermaid
 flowchart LR
-    User([Browser]) -->|HTTPS| CF[CloudFront]
-    CF -->|Private origin access| S3[(Private S3 bucket)]
-    User -.->|Optional sync| GH[GitHub Gist API]
-    User -.->|Optional AI requests| AI[Claude API]
+    Dev([Developer]) -->|Pull request| PR[fmt, validate, plan]
+    PR --> PlanRole[Plan role<br/>read-only]
+    Dev -->|Merge| Main[main]
+    Main --> ApplyRole[Apply role]
+    ApplyRole -->|terraform apply| Infra[AWS resources]
+    Main -->|Sync index.html| S3[(Frontend bucket)]
+    Main -->|Invalidate cache| CF[CloudFront]
 ```
 
-- **CloudFront** is the only public entry point and serves the app over HTTPS.
-- **S3** is private and is not directly accessible; CloudFront reads from it as the origin.
-- **Application data** stays in the browser's LocalStorage, with optional cloud sync through GitHub Gist.
-- **AI features** call the Claude API directly from the browser.
+- **No stored credentials:** GitHub Actions assumes short-lived AWS roles through OIDC. No access keys exist in GitHub or in the repository history.
+- **Separate roles:** a read-only Plan role runs on pull requests; the Apply role trusts only `main`.
+- **On pull requests:** `terraform fmt -check`, `terraform validate` and `terraform plan`.
+- **On merge to main:** `terraform apply`, sync `index.html` to S3, invalidate the CloudFront cache.
+- **IAM changes** are applied locally with an admin profile before merging, because the Apply role cannot modify IAM.
 
-**Definition of done:** JH TaskOps can be accessed through a CloudFront HTTPS URL, with the frontend stored in a private S3 bucket. Existing application functionality continues to work.
+See [infrastructure/README.md](infrastructure/README.md) for setup and operations.
 
-**Verified:**
+## Project history
+
+| Phase | Scope |
+|---|---|
+| 1 | Frontend on private S3 behind CloudFront over HTTPS |
+| 2 | Terraform import, remote state, GitHub Actions with OIDC |
+| 2.1 | Custom domain with ACM and Cloudflare |
+
+<details>
+<summary>Phase 1 verification</summary>
+
+**Done when:** the app is served through CloudFront over HTTPS from a private S3 bucket, and existing features still work.
 
 - Application loads successfully through CloudFront over HTTPS
-- S3 bucket remains private and is accessible through CloudFront
+- S3 bucket remains private and is accessible only through CloudFront
 - LocalStorage persists application data correctly
 - GitHub Gist sync continues to work
 - Claude AI integration continues to work
 
-### Phase 2: Infrastructure as Code and CI/CD
+</details>
 
-The existing AWS resources are managed with Terraform, and every merge to `main` deploys automatically through GitHub Actions. No AWS access keys are stored in GitHub or in the repository.
+<details>
+<summary>Phase 2 verification</summary>
 
-```mermaid
-flowchart LR
-    Dev([Developer]) -->|Pull request| PR[PR checks]
-    PR -->|fmt, validate, plan| PlanRole[Plan role<br/>read-only]
-    Dev -->|Merge| Main[main branch]
-    Main -->|terraform apply| ApplyRole[Apply role]
-    ApplyRole --> Infra[S3 + CloudFront]
-    Main -->|Sync index.html| S3[(Frontend bucket)]
-    Main -->|Invalidate cache| CF[CloudFront]
-    PlanRole -.-> State[(Remote state<br/>S3 + lockfile)]
-    ApplyRole -.-> State
-```
-
-- **Terraform** manages the existing S3 bucket, CloudFront distribution and origin access control, which were imported without changes. See [infrastructure/README.md](infrastructure/README.md).
-- **Remote state** is stored in a dedicated S3 bucket with versioning, encryption, Block Public Access and native state locking (`use_lockfile`).
-- **GitHub OIDC** lets workflows assume short-lived AWS roles. The read-only Plan role runs on pull requests; the Apply role trusts only `main`.
-- **Pull requests** run `terraform fmt -check`, `terraform validate` and `terraform plan`.
-- **Merges to `main`** apply the Terraform plan, sync `index.html` to S3 and invalidate the CloudFront cache.
-- **Cost control** uses an AWS Budget with alert thresholds.
-
-**Definition of done:** a frontend change merged to `main` reaches the live site automatically, infrastructure changes are reviewed through a Terraform plan on each pull request, and the repository contains no AWS credentials.
-
-**Verified:**
+**Done when:** a frontend change merged to main reaches the live site automatically, infrastructure changes are reviewed through a Terraform plan on each pull request, and the repository contains no AWS credentials.
 
 - Existing AWS resources imported into Terraform with `terraform plan` showing no changes
 - Remote state with locking works locally and in GitHub Actions
 - GitHub Actions assumes the Plan and Apply roles through OIDC without access keys
 - Pull request plan workflow runs successfully
-- Merging a frontend change to `main` runs Terraform apply, syncs `index.html` to S3 and completes a CloudFront invalidation
+- Merging a frontend change to main runs `terraform apply`, syncs `index.html` to S3 and completes a CloudFront invalidation
 - Live site serves the new version after the automated deploy
 - Repository and git history contain no AWS credentials
 - Final `terraform plan` shows no changes
 
-### Phase 2.1: Custom domain
+</details>
 
-The app is served at `taskops.jessamyh.com`, using the same setup as JH Gallery. DNS stays on Cloudflare; the certificate and CloudFront settings are managed by Terraform and applied through the Phase 2 pipeline.
+<details>
+<summary>Phase 2.1 verification</summary>
 
-```mermaid
-flowchart LR
-    User([Browser]) -->|DNS lookup| CFDNS[Cloudflare DNS<br/>DNS only]
-    CFDNS -->|CNAME| CF[CloudFront]
-    ACM[ACM certificate<br/>us-east-1] -->|sni-only, TLSv1.2_2021| CF
-    CFDNS -.->|Validation CNAME| ACM
-```
+**Done when:** https://taskops.jessamyh.com serves the app with a valid ACM certificate, the certificate can renew automatically, and `terraform plan` shows no changes.
 
-- **ACM** issues the certificate in us-east-1, which CloudFront requires, through a Terraform provider alias. The domain is set in the `domain_name` variable.
-- **DNS validation** uses a CNAME added by hand in Cloudflare. It stays in place so the certificate can renew automatically.
-- **CloudFront** serves the domain as an alias with SNI and a minimum of TLS 1.2 (`TLSv1.2_2021`).
-- **IAM** scope stays narrow: the Plan role can only read certificates, and the Apply role can only request a DNS-validated certificate for this domain.
-- **Operations:** IAM changes must be applied locally with the admin profile before merging, because the Apply role cannot modify IAM. Deleting or replacing the certificate also requires the admin profile.
-
-**Definition of done:** `https://taskops.jessamyh.com` serves the app with a valid ACM certificate, the certificate can renew automatically, and `terraform plan` shows no changes.
-
-**Verified:**
-
-- `https://taskops.jessamyh.com` loads with a valid certificate
+- https://taskops.jessamyh.com loads with a valid certificate
 - HTTP redirects to HTTPS
 - Validation CNAME retained for auto-renewal
 - `terraform plan` shows no changes
 
+</details>
+
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE).
