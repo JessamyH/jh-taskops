@@ -334,7 +334,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
 .blocker-add-row{display:flex;flex-direction:row;gap:6px;margin-top:10px;flex-shrink:0;align-items:stretch}
 .blocker-add-row-inputs{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
 .blocker-add-input-wrap{position:relative}
-.blocker-add-input{width:100%;background:rgba(196,90,48,.05);border:1px solid rgba(196,90,48,.2);border-radius:8px;padding:8px 9px;padding-right:52px;font-size:12px;color:var(--text);font-family:'Lato',sans-serif;outline:none;box-sizing:border-box}
+.blocker-add-input{width:100%;background:rgba(196,90,48,.05);border:1px solid rgba(196,90,48,.2);border-radius:8px;padding:8px 9px;font-size:12px;color:var(--text);font-family:'Lato',sans-serif;outline:none;box-sizing:border-box}
 .blocker-add-input:focus{border-color:var(--blocker);background:#fff}
 .blocker-add-input::placeholder{color:var(--muted2)}
 .blocker-owner-inp::placeholder{color:var(--muted2)}
@@ -607,10 +607,6 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
 .vol-val{font-size:11px;font-family:'DM Mono',monospace;color:var(--muted2);min-width:26px}
 .pomo-task-link{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .pomo-task-select{flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-family:'Lato',sans-serif;outline:none;transition:border-color .15s}
-.pomo-translate-btn{font-size:11px;padding:5px 8px;border-radius:7px;border:1px solid rgba(90,138,106,.25);background:rgba(90,138,106,.06);color:var(--sage2);cursor:pointer;font-family:'Lato',sans-serif;flex-shrink:0;transition:all .15s}
-.pomo-translate-btn:hover{background:rgba(90,138,106,.14)}
-[data-theme="orange"] .pomo-translate-btn{border-color:rgba(218,119,86,.25);background:rgba(218,119,86,.06);color:var(--accent)}
-[data-theme="orange"] .pomo-translate-btn:hover{background:rgba(218,119,86,.14)}
 .pomo-task-select:focus{border-color:var(--sage)}
 .pomo-task-cur{font-size:12px;color:var(--muted2);font-style:italic}
 .pomo-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
@@ -1075,8 +1071,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
           </div>
           <div id="mtg-ctx-body" style="display:none">
             <div style="position:relative">
-            <textarea id="mtg-context" rows="15" placeholder="Meeting topic, attendees, agenda…" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;padding-right:56px;font-size:14px;font-family:inherit;color:var(--text);background:var(--bg);resize:vertical;outline:none;line-height:1.6;transition:border-color .15s;box-sizing:border-box" onfocus="this.style.borderColor='var(--sage)'" onblur="this.style.borderColor='var(--border)'" oninput="mtgSaveContext()"></textarea>
-            <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('mtg-context',this)" title="Translate to English" style="position:absolute;right:8px;bottom:10px;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
+            <textarea id="mtg-context" rows="15" placeholder="Meeting topic, attendees, agenda…" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;color:var(--text);background:var(--bg);resize:vertical;outline:none;line-height:1.6;transition:border-color .15s;box-sizing:border-box" onfocus="this.style.borderColor='var(--sage)'" onblur="this.style.borderColor='var(--border)'" oninput="mtgSaveContext()"></textarea>
             </div>
             <script>try{var _mc=localStorage.getItem('jhtt_mtg_context');if(_mc)document.getElementById('mtg-context').value=_mc;}catch(e){}</script>
             <div style="margin-top:8px;display:flex;justify-content:flex-end">
@@ -1088,8 +1083,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
         <div id="mtg-bulk-card" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow-sm)">
           <div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Question Checklist</div>
           <div style="position:relative">
-          <textarea id="mtg-bulk" rows="8" placeholder="One question per line&#10;e.g. What is your timeline for this?" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;padding-right:56px;font-size:14px;font-family:inherit;color:var(--text);background:var(--bg);resize:vertical;outline:none;line-height:1.6;box-sizing:border-box" onfocus="this.style.borderColor='var(--sage)'" onblur="this.style.borderColor='var(--border)'" oninput="try{localStorage.setItem('jhtt_mtg_bulk',this.value)}catch(e){}"></textarea>
-          <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('mtg-bulk',this)" title="Translate to English" style="position:absolute;right:8px;bottom:10px;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
+          <textarea id="mtg-bulk" rows="8" placeholder="One question per line&#10;e.g. What is your timeline for this?" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;color:var(--text);background:var(--bg);resize:vertical;outline:none;line-height:1.6;box-sizing:border-box" onfocus="this.style.borderColor='var(--sage)'" onblur="this.style.borderColor='var(--border)'" oninput="try{localStorage.setItem('jhtt_mtg_bulk',this.value)}catch(e){}"></textarea>
           </div>
           <script>try{var _mb=localStorage.getItem('jhtt_mtg_bulk');if(_mb)document.getElementById('mtg-bulk').value=_mb;}catch(e){}</script>
           <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
@@ -1221,10 +1215,9 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
               <div style="display:flex;gap:8px">
                 <div style="position:relative;flex:1">
                   <input id="fb-input" type="text" placeholder="Describe the bug, idea or improvement…" maxlength="200"
-                    style="width:100%;font-size:13px;padding:8px 70px 8px 12px;border:1.5px solid var(--border);border-radius:9px;background:var(--surface2);color:var(--text);outline:none;font-family:'Lato',sans-serif;box-sizing:border-box"
+                    style="width:100%;font-size:13px;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;background:var(--surface2);color:var(--text);outline:none;font-family:'Lato',sans-serif;box-sizing:border-box"
                     onfocus="this.style.borderColor='var(--sage)'" onblur="this.style.borderColor='var(--border)'"
                     onkeydown="if(event.key==='Enter')fbAdd()">
-                  <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('fb-input',this)" title="Translate to English" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
                 </div>
                 <button onclick="fbAdd()" class="btn btn-primary" style="font-size:13px;padding:8px 18px;white-space:nowrap">Add</button>
               </div>
@@ -1414,15 +1407,13 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
         <div class="form-group">
           <label class="form-label">Title</label>
           <div style="position:relative">
-            <input class="form-input" id="idea-title" placeholder="What's the idea?" style="padding-right:70px">
-            <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('idea-title',this)" title="Translate to English" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
+            <input class="form-input" id="idea-title" placeholder="What's the idea?">
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">Description <span style="color:var(--muted2);font-weight:400">(optional)</span></label>
           <div style="position:relative">
-            <textarea class="form-textarea" id="idea-desc" placeholder="Any context, links, or details…" style="padding-right:70px;padding-bottom:32px"></textarea>
-            <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('idea-desc',this)" title="Translate to English" style="position:absolute;right:8px;bottom:8px;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
+            <textarea class="form-textarea" id="idea-desc" placeholder="Any context, links, or details…" style="padding-bottom:32px"></textarea>
           </div>
         </div>
         <div class="modal-actions" style="justify-content:flex-end">
@@ -1446,8 +1437,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
         <div class="form-group">
           <label class="form-label">Task</label>
           <div style="position:relative">
-            <input class="form-input" id="routine-text" placeholder="e.g. Write weekly report" style="padding-right:70px">
-            <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('routine-text',this)" title="Translate to English" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
+            <input class="form-input" id="routine-text" placeholder="e.g. Write weekly report">
           </div>
         </div>
         <div class="form-group">
@@ -1532,7 +1522,6 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
                 <div style="display:flex;gap:6px;align-items:center">
                   <input class="pomo-task-select" id="pomo-session-note" type="text" placeholder="e.g. deep work, review call…" maxlength="80" style="flex:1;box-sizing:border-box" oninput="pomoSaveState()">
                   <button type="button" id="pomo-chips-btn" onclick="pomoToggleChips()" style="display:none;font-size:11px;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;flex-shrink:0;transition:all .15s">&#128161;</button>
-                  <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('pomo-session-note', this)" title="Translate to English" class="pomo-translate-btn">🌐 EN</button>
                 </div>
                 <div id="pomo-note-chips" style="display:none;position:absolute;top:calc(100% + 5px);left:0;right:0;background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.12)"></div>
               </div>
@@ -1595,7 +1584,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
       <button class="modal-close" onclick="closeTaskModal()">✕</button>
     </div>
     <input type="hidden" id="edit-id">
-    <div class="form-group"><label class="form-label">Task name</label><div style="position:relative"><input class="form-input" id="f-name" placeholder="e.g. Complete Claude API course" style="padding-right:70px"><button type="button" title="Translate to English" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('f-name', this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:'Lato',sans-serif" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button></div></div>
+    <div class="form-group"><label class="form-label">Task name</label><div style="position:relative"><input class="form-input" id="f-name" placeholder="e.g. Complete Claude API course"></div></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Date assigned</label><input class="form-input" type="date" id="f-date"></div>
       <div class="form-group"><label class="form-label" style="color:var(--amber)">Due date</label><input class="form-input" type="date" id="f-due" style="border-left:3px solid var(--amber)"></div>
@@ -1615,7 +1604,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
       </div>
     </div>
     <datalist id="tag-suggestions"></datalist>
-    <div class="form-group"><label class="form-label">Notes</label><div style="position:relative"><textarea class="form-textarea" id="f-notes" placeholder="Any details..." style="padding-right:70px;padding-bottom:32px"></textarea><button type="button" title="Translate to English" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('f-notes', this)" style="position:absolute;right:8px;bottom:8px;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:'Lato',sans-serif" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button></div></div>
+    <div class="form-group"><label class="form-label">Notes</label><div style="position:relative"><textarea class="form-textarea" id="f-notes" placeholder="Any details..." style="padding-bottom:32px"></textarea></div></div>
     <div class="modal-actions" style="justify-content:flex-end">
       <button class="btn" id="task-delete-action" style="display:none;border-color:rgba(138,90,90,.3);color:var(--rose);background:rgba(138,90,90,.06)" onclick="deleteTaskFromModal()">✕ Delete</button>
       <div style="display:flex;gap:8px">
@@ -1683,8 +1672,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
       <label class="form-label">Note</label>
       <div style="display:flex;gap:6px;align-items:center">
         <div style="position:relative;flex:1">
-          <input class="form-input" id="me-note" placeholder="e.g. offsite meeting, brainstorm…" maxlength="80" style="padding-right:70px">
-          <button type="button" title="Translate to English" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('me-note', this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:'Lato',sans-serif" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
+          <input class="form-input" id="me-note" placeholder="e.g. offsite meeting, brainstorm…" maxlength="80">
         </div>
         <button type="button" id="me-chips-btn" onclick="meToggleChips()" style="display:none;font-size:11px;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;flex-shrink:0;transition:all .15s">💡</button>
       </div>
@@ -2466,8 +2454,6 @@ function openTaskModal(id) {
 let _pdpTaskId = null;
 let _pdpTab = 'overview';
 
-const _tBtn = (id, pos='right:8px;top:50%;transform:translateY(-50%)') =>
-  `<button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('${id}',this)" title="Translate to English" style="position:absolute;${pos};font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:'Lato',sans-serif;z-index:1" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>`;
 
 function openProjDetail(id) {
   if (_pdpTaskId !== id) _pdpBlockerOwner = null;
@@ -2539,8 +2525,7 @@ function pdpRenderOverview(body, footer) {
     <div class="pdp-field">
       <span class="pdp-label">Task name</span>
       <div style="position:relative">
-        <input class="form-input" id="pdp-f-name" value="${escHtml(task.name)}" style="font-size:14px;padding-right:70px" onblur="pdpAutosaveOverview()">
-        ${_tBtn('pdp-f-name')}
+        <input class="form-input" id="pdp-f-name" value="${escHtml(task.name)}" style="font-size:14px" onblur="pdpAutosaveOverview()">
       </div>
     </div>
     <div class="pdp-field-row">
@@ -2582,8 +2567,7 @@ function pdpRenderOverview(body, footer) {
     <div class="pdp-field">
       <span class="pdp-label">Notes</span>
       <div style="position:relative">
-        <textarea class="form-textarea" id="pdp-f-notes" style="min-height:80px;padding-right:70px;padding-bottom:32px" onblur="pdpAutosaveOverview()">${escHtml(task.notes || '')}</textarea>
-        ${_tBtn('pdp-f-notes', 'right:8px;bottom:8px')}
+        <textarea class="form-textarea" id="pdp-f-notes" style="min-height:80px;padding-bottom:32px" onblur="pdpAutosaveOverview()">${escHtml(task.notes || '')}</textarea>
       </div>
     </div>
     <div style="margin-top:4px">
@@ -2596,8 +2580,7 @@ function pdpRenderOverview(body, footer) {
   footer.innerHTML = `
     <div style="display:flex;gap:7px;width:100%">
       <div style="position:relative;flex:1">
-        <input class="daily-add-input" id="pdp-today-input" placeholder="Add to today…" onkeydown="if(event.key==='Enter')pdpTodayAdd(${task.id})" style="padding-right:56px;width:100%;box-sizing:border-box">
-        ${_tBtn('pdp-today-input')}
+        <input class="daily-add-input" id="pdp-today-input" placeholder="Add to today…" onkeydown="if(event.key==='Enter')pdpTodayAdd(${task.id})" style="width:100%;box-sizing:border-box">
       </div>
       <button class="pdp-add-btn" onclick="pdpTodayAdd(${task.id})" style="align-self:stretch;padding:0 12px;font-size:16px">+</button>
     </div>
@@ -2814,8 +2797,7 @@ function pdpRenderBacklog(body, footer) {
   footer.innerHTML = `
     <div style="display:flex;gap:7px;width:100%">
       <div style="position:relative;flex:1">
-        <input class="backlog-add-input" id="pdp-bl-input" placeholder="Add backlog item…" onkeydown="if(event.key==='Enter')pdpBacklogAdd()" style="padding-right:56px;width:100%;box-sizing:border-box">
-        ${_tBtn('pdp-bl-input')}
+        <input class="backlog-add-input" id="pdp-bl-input" placeholder="Add backlog item…" onkeydown="if(event.key==='Enter')pdpBacklogAdd()" style="width:100%;box-sizing:border-box">
       </div>
       <button class="backlog-add-btn" onclick="pdpBacklogAdd()" style="align-self:stretch;padding:6px 12px;font-size:16px">+</button>
     </div>
@@ -2917,8 +2899,7 @@ function pdpRenderBlockers(body, footer) {
       <div style="display:flex;gap:6px;flex:1;min-width:0">
         <input id="pdp-bk-owner" value="${escHtml(ownerVal)}" placeholder="Who?" style="width:72px;flex-shrink:0;font-size:12px;font-family:'Lato',sans-serif;background:var(--surface);border:1px solid rgba(196,90,48,.2);border-radius:8px;padding:8px;color:var(--text);outline:none;box-sizing:border-box" class="blocker-owner-inp" onfocus="this.style.borderColor='var(--blocker)'" onblur="this.style.borderColor='rgba(196,90,48,.2)';_pdpBlockerOwner=this.value.trim()||null">
         <div style="position:relative;flex:1;min-width:0">
-          <input class="blocker-add-input" id="pdp-bk-input" placeholder="Describe the blocker…" onkeydown="if(event.key==='Enter')pdpBlockerAdd()" style="width:100%;box-sizing:border-box;padding-right:56px;background:rgba(196,90,48,.05)">
-          <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('pdp-bk-input',this)" title="Translate to English" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid rgba(196,90,48,.25);background:rgba(196,90,48,.07);color:var(--blocker-dark);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.background='rgba(196,90,48,.15)'" onmouseout="this.style.background='rgba(196,90,48,.07)'">🌐 EN</button>
+          <input class="blocker-add-input" id="pdp-bk-input" placeholder="Describe the blocker…" onkeydown="if(event.key==='Enter')pdpBlockerAdd()" style="width:100%;box-sizing:border-box;background:rgba(196,90,48,.05)">
         </div>
       </div>
       <button class="blocker-add-btn" onclick="pdpBlockerAdd()" style="align-self:stretch;padding:0 12px;font-size:16px">+</button>
@@ -5609,71 +5590,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // Also check on first render if already on AI view
 aiCheckKey();
-// ── Inline translate helper ───────────────────────────────────
-function _isChinese(text) {
-  return /[\u4e00-\u9fff\u3400-\u4dbf]/.test(text);
-}
-
-async function inlineTranslate(inputId, btnEl) {
-  const inp = document.getElementById(inputId);
-  if (!inp) return;
-  const text = inp.value.trim();
-  if (!text) { showToast('Nothing to translate'); return; }
-
-  const key = aiGetKey();
-  if (!key) { showToast('Add your API key in AI Assistant first'); return; }
-
-  const toCN = btnEl.dataset.lang === 'cn';
-  const prompt = toCN
-    ? `Translate the following to natural, professional Chinese (Simplified). Output only the translation, nothing else:\n\n${text}`
-    : `Translate the following to natural, professional English. Output only the translation, nothing else:\n\n${text}`;
-
-  const orig = btnEl.textContent;
-  btnEl.textContent = '…';
-  btnEl.disabled = true;
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    inp.value = data.content.map(b => b.text || '').join('');
-    inp.focus();
-    showToast('Translated ✓');
-  } catch (e) {
-    showToast('Translation failed: ' + e.message);
-  } finally {
-    btnEl.textContent = toCN ? '🌐 CN' : '🌐 EN';
-    btnEl.disabled = false;
-  }
-}
-
-function toggleTranslateLang(btnEl) {
-  const isCN = btnEl.dataset.lang === 'cn';
-  btnEl.dataset.lang = isCN ? 'en' : 'cn';
-  btnEl.textContent = isCN ? '🌐 EN' : '🌐 CN';
-  btnEl.title = isCN ? 'Translate to English' : 'Translate to Chinese';
-}
-
-function makeTranslateBtn(inputId) {
-  return `<button type="button" title="Translate to English (right-click to switch language)" onclick="inlineTranslate('${inputId}', this)" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" data-lang="en"
-    style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:'Lato',sans-serif;z-index:1"
-    onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'"
-    onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>`;
-}
-// ── end inline translate ──────────────────────────────────────
 let aiPendingAction = null; // 'summarize_tasks' or 'standup'
 
 function aiOpenDateModal(action) {
@@ -7549,8 +7465,7 @@ function dailyRender() {
         <button type="button" onclick="dailySetAddDate('tomorrow')" title="Add for tomorrow" style="padding:0 10px;height:36px;font-size:12px;border:none;cursor:pointer;font-family:'Lato',sans-serif;white-space:nowrap;background:${_dailyAddDate==='tomorrow'?'var(--sky)':'var(--surface)'};color:${_dailyAddDate==='tomorrow'?'#fff':'var(--muted)'}">Tmrw</button>
       </div>
       <div style="position:relative;flex:1">
-        <input class="daily-add-input" id="daily-add-input" placeholder="${_dailyAddDate==='tomorrow' ? 'Add a task for tomorrow…' : 'Add a task for today…'}" onkeydown="if(event.key==='Enter')dailyAdd()" style="width:100%;box-sizing:border-box;padding-right:56px">
-        <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('daily-add-input',this)" title="Translate to English" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
+        <input class="daily-add-input" id="daily-add-input" placeholder="${_dailyAddDate==='tomorrow' ? 'Add a task for tomorrow…' : 'Add a task for today…'}" onkeydown="if(event.key==='Enter')dailyAdd()" style="width:100%;box-sizing:border-box">
       </div>
       <select class="daily-task-select" id="daily-task-select">
         <option value="">Link to project (optional)</option>
@@ -7614,8 +7529,7 @@ function dailyRender() {
         <div class="backlog-add-row" style="margin-top:12px;flex-shrink:0">
           <div class="backlog-add-row-inputs">
           <div style="position:relative">
-            <input class="backlog-add-input" id="backlog-add-input" placeholder="Add to backlog…" onkeydown="if(event.key==='Enter')dailyBacklogAdd()" style="width:100%;box-sizing:border-box;padding-right:56px">
-            <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('backlog-add-input',this)" title="Translate to English" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--sage)';this.style.color='var(--sage2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🌐 EN</button>
+            <input class="backlog-add-input" id="backlog-add-input" placeholder="Add to backlog…" onkeydown="if(event.key==='Enter')dailyBacklogAdd()" style="width:100%;box-sizing:border-box">
           </div>
           <select class="daily-task-select" id="backlog-add-task-sel" style="font-size:12px;width:100%;max-width:none">
               <option value="">Link to project (optional)</option>${taskOptsForAdd}
@@ -7695,7 +7609,6 @@ function blockerRender(taskOptsForAdd) {
       <div class="blocker-add-row-inputs">
       <div class="blocker-add-input-wrap">
         <input class="blocker-add-input" id="blocker-add-input" placeholder="Describe the blocker…" onkeydown="if(event.key==='Enter')blockerAdd()">
-        <button type="button" data-lang="en" oncontextmenu="event.preventDefault();toggleTranslateLang(this)" onclick="inlineTranslate('blocker-add-input',this)" title="Translate to English" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid rgba(196,90,48,.25);background:rgba(196,90,48,.07);color:var(--blocker-dark);cursor:pointer;font-family:'Lato',sans-serif;transition:all .15s" onmouseover="this.style.background='rgba(196,90,48,.15)'" onmouseout="this.style.background='rgba(196,90,48,.07)'">🌐 EN</button>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <input id="blocker-owner-input" value="${ownerVal}" placeholder="Who?" style="width:80px;flex-shrink:0;font-size:12px;font-family:'Lato',sans-serif;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);outline:none;box-sizing:border-box" class="blocker-owner-inp" onfocus="this.style.borderColor='var(--blocker)'" onblur="this.style.borderColor='rgba(196,90,48,.2)';_blockerOwner=this.value.trim()||null">
