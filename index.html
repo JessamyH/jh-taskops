@@ -287,6 +287,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
 .backlog-task-tag.unlinked{background:var(--bg2);color:var(--muted2)}
 .backlog-task-tag:hover{opacity:.8}
 .backlog-link-picker{position:absolute;z-index:200;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);min-width:180px;max-width:240px}
+.backlog-link-picker input{width:100%;box-sizing:border-box;margin-top:6px;font-size:12px;font-family:'Lato',sans-serif;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:5px 7px;color:var(--text);outline:none}
 .backlog-link-picker select{width:100%;font-size:12px;font-family:'Lato',sans-serif;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:5px 7px;color:var(--text);outline:none}
 .backlog-link-picker-btns{display:flex;gap:6px;margin-top:6px}
 .backlog-link-picker-btns button{flex:1;font-size:11px;font-family:'Lato',sans-serif;border-radius:7px;padding:4px 0;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--text2)}
@@ -1451,9 +1452,16 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
         </div>
         <div class="form-group">
           <label class="form-label">Link to project <span style="color:var(--muted2);font-weight:400">(optional)</span></label>
-          <select class="form-input" id="routine-task-select" style="width:100%;box-sizing:border-box">
+          <select class="form-input" id="routine-task-select" style="width:100%;box-sizing:border-box" onchange="routineTaskChanged(this)">
             <option value="">No project</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tag <span style="color:var(--muted2);font-weight:400">(optional)</span></label>
+          <div class="tag-input-wrap" onclick="document.getElementById('routine-tag-input').focus()">
+            <span id="routine-tag-chips" style="display:contents"></span>
+            <input class="tag-input" id="routine-tag-input" placeholder="Add tag, press Enter" list="tag-suggestions" onkeydown="tagInputKeydown(event,'routine')" onblur="tagInputCommit('routine')">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Link <span style="color:var(--muted2);font-weight:400">(optional)</span></label>
@@ -2367,7 +2375,56 @@ let _modalTags = [];
 function allTags() {
   const s = new Set();
   tasks.forEach(t => (t.tags || []).forEach(tg => s.add(tg)));
+  [dailyItems, backlogItems, routines].forEach(list => list.forEach(i => { if (i.tag) s.add(i.tag); }));
   return [...s].sort((a, b) => a.localeCompare(b));
+}
+
+// ── Item Tags (daily, backlog, routines) ─────────────────────────────────
+// Items keep their own `tag`, independent of the project link. Picking a
+// project fills in that project's tag as a default, which can be overridden.
+function projectTag(taskId) {
+  const t = taskId ? tasks.find(x => x.id === taskId) : null;
+  return (t && t.tags && t.tags[0]) || null;
+}
+function itemTag(item) {
+  if (!item) return null;
+  return item.tag !== undefined ? item.tag : projectTag(item.taskId);
+}
+// Carry the tag along when the project changes, unless the user chose a different one.
+function tagAfterProjectChange(curTag, oldTaskId, newTaskId) {
+  if (!curTag || curTag === projectTag(oldTaskId)) return projectTag(newTaskId);
+  return curTag;
+}
+function tagInputFollowProject(sel, inputId) {
+  const inp = document.getElementById(inputId);
+  const oldId = sel.dataset.prev ? parseInt(sel.dataset.prev) : null;
+  const newId = sel.value ? parseInt(sel.value) : null;
+  if (inp) inp.value = tagAfterProjectChange(inp.value.trim(), oldId, newId) || '';
+  sel.dataset.prev = sel.value;
+}
+// Tag for a focus session logged from a Daily List item. Undefined (not stored)
+// when there's no item or its project was changed, so reports fall back to the project.
+function sessionTagFor(dailyItemId, taskId) {
+  const item = dailyItemId != null ? dailyItems.find(i => i.id === dailyItemId) : null;
+  if (!item || (item.taskId || null) !== (taskId || null)) return undefined;
+  return itemTag(item);
+}
+function sessionTags(e) {
+  if (e.tag !== undefined) return e.tag ? [e.tag] : [];
+  const t = tasks.find(x => x.id === e.taskId) || tasks.find(x => x.name === e.taskName);
+  return (t && t.tags) || [];
+}
+// One-time, idempotent: items without a `tag` field inherit their project's tag.
+function migrateItemTags() {
+  let changedDaily = false, changedRoutines = false;
+  [dailyItems, backlogItems].forEach(list => list.forEach(i => {
+    if (i.tag === undefined) { i.tag = projectTag(i.taskId); changedDaily = true; }
+  }));
+  routines.forEach(r => {
+    if (r.tag === undefined) { r.tag = projectTag(r.taskId); changedRoutines = true; }
+  });
+  if (changedDaily) dailySave();
+  if (changedRoutines) routinesSaveStore();
 }
 
 function updateTagDatalist() {
@@ -2382,17 +2439,21 @@ function tagInputKeydown(e, ctx) {
     tagInputCommit(ctx);
   } else if (e.key === 'Backspace' && input.value === '') {
     if (ctx === 'modal') { _modalTags.pop(); renderModalTags(); }
+    else if (ctx === 'routine') { _routineEditTag = null; routineRenderTag(); }
     else { const t = tasks.find(x => x.id === _pdpTaskId); if (t && t.tags && t.tags.length) { t.tags.pop(); save(); render(); pdpRenderTags(); } }
   }
 }
 
 function tagInputCommit(ctx) {
-  const input = document.getElementById(ctx === 'modal' ? 'f-tags-input' : 'pdp-f-tags-input');
+  const input = document.getElementById(ctx === 'modal' ? 'f-tags-input' : ctx === 'routine' ? 'routine-tag-input' : 'pdp-f-tags-input');
   if (!input) return;
   const val = input.value.trim();
   if (!val) { input.value = ''; return; }
   input.value = '';
-  if (ctx === 'modal') {
+  if (ctx === 'routine') {
+    _routineEditTag = val;
+    routineRenderTag();
+  } else if (ctx === 'modal') {
     _modalTags = [val];
     renderModalTags();
   } else {
@@ -3405,8 +3466,8 @@ function wrRenderFocusBars(sessions) {
   var taskMap = {};
   if (wrFocusMode === 'tag') {
     sessions.forEach(function(e) {
-      var t = tasks.find(function(x){ return x.id === e.taskId; }) || tasks.find(function(x){ return x.name === e.taskName; });
-      var tgs = (t && t.tags && t.tags.length) ? t.tags : ['Untagged'];
+      var tgs = sessionTags(e);
+      if (!tgs.length) tgs = ['Untagged'];
       tgs.forEach(function(tg) { taskMap[tg] = (taskMap[tg] || 0) + (e.mins || 0); });
     });
   } else {
@@ -3940,6 +4001,7 @@ function pomoFinishFocusSession(elapsedSec, wasOvertime) {
     mins: mins,
     taskId: taskId,
     taskName: taskName,
+    tag: sessionTagFor(pomoLinkedDailyItemId, taskId),
     note: note,
     ts: (pomoSessionStartTime || new Date()).toISOString()
   };
@@ -4566,10 +4628,7 @@ async function pomoExportLog(fromDate, toDate) {
   const sortedLog = filtered.sort((a, b) => new Date(a.ts) - new Date(b.ts));
 
   // ── Sheet 1: Session Log (no Type column)
-  const tagsFor = e => {
-    const t = tasks.find(x => x.id === e.taskId) || tasks.find(x => x.name === e.taskName);
-    return (t && t.tags && t.tags.length) ? t.tags.join(', ') : '';
-  };
+  const tagsFor = e => sessionTags(e).join(', ');
   const sheet1Data = [['Date', 'Time', 'Project', 'Tags', 'Note', 'Duration (min)']];
   sortedLog.forEach(e => {
     const d = new Date(e.ts);
@@ -4692,8 +4751,7 @@ const sheet2Data = [['Project', 'Total (min)', 'Hours', 'Distribution']];
   const tagMap = {};
   sortedLog.forEach(e => {
     if (e.type !== 'focus') return;
-    const t = tasks.find(x => x.id === e.taskId) || tasks.find(x => x.name === e.taskName);
-    const tgs = (t && t.tags && t.tags.length) ? t.tags : ['Untagged'];
+    const tgs = sessionTags(e).length ? sessionTags(e) : ['Untagged'];
     tgs.forEach(tg => { tagMap[tg] = (tagMap[tg] || 0) + (e.mins || 0); });
   });
   const sheet3Rows = Object.entries(tagMap).sort((a, b) => b[1] - a[1]);
@@ -5112,6 +5170,7 @@ function saveManualEntry() {
     const entry = pomoLog.find(e => e.id === _meEditId);
     if (entry) {
       entry.mins = minsRaw;
+      if (entry.taskId !== taskId) delete entry.tag; // project changed: tag follows the new project
       entry.taskId = taskId;
       entry.taskName = taskName;
       entry.note = note || '';
@@ -5130,6 +5189,7 @@ function saveManualEntry() {
     mins: minsRaw,
     taskId: taskId,
     taskName: taskName,
+    tag: sessionTagFor(_meDailyItemId, taskId),
     note: note || '',
     manual: true,
     ts: new Date(tsStr).toISOString()
@@ -5200,6 +5260,7 @@ function importData(input) {
       if (data.ideas) { ideas = data.ideas; localStorage.setItem(IDEAS_KEY, JSON.stringify(ideas)); }
       if (data.fbItems) { fbItems = data.fbItems; localStorage.setItem(FB_KEY, JSON.stringify(fbItems)); }
       if (data.routines) { routines = data.routines; routinesSaveStore(); }
+      migrateItemTags();
       if (data.username) { localStorage.setItem('jhtt_username', data.username); }
       if (data.aboutme) { localStorage.setItem('jhtt_aboutme', data.aboutme); }
       render();
@@ -6420,6 +6481,7 @@ function backlogAutoSchedule() {
       date: today,
       taskId: item.taskId || null,
       taskName: item.taskName || null,
+      tag: itemTag(item),
       link: item.link || null,
       estMins: item.estMins || null,
       done: false,
@@ -6445,6 +6507,7 @@ const ROUTINE_DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const ROUTINE_DAY_JS = [1,2,3,4,5,6,0]; // maps display index -> JS Date.getDay() value
 let _routineEditDays = [];
 let _routineEditEst = null;
+let _routineEditTag = null;
 
 function routinesSaveStore() { localStorage.setItem(ROUTINE_KEY, JSON.stringify(routines)); }
 
@@ -6463,6 +6526,7 @@ function routineGenerate() {
         date,
         taskId: r.taskId || null,
         taskName: r.taskName || null,
+        tag: itemTag(r),
         link: r.link || null,
         estMins: r.estMins || null,
         starred: !!r.starred,
@@ -6625,14 +6689,38 @@ function routineOpenEdit(idx, presetTaskId) {
   const taskOptions = tasks.filter(t => t.status !== 'done').map(t => `<option value="${t.id}">${t.name.length > 35 ? t.name.slice(0,35)+'…' : t.name}</option>`).join('');
   sel.innerHTML = `<option value="">No project</option>${taskOptions}`;
   sel.value = r && r.taskId ? r.taskId : (presetTaskId !== undefined ? presetTaskId : '');
+  sel.dataset.prev = sel.value;
   const projGroup = sel.closest('.form-group');
   if (projGroup) projGroup.style.display = (presetTaskId !== undefined && !r) ? 'none' : '';
+  _routineEditTag = r ? itemTag(r) : projectTag(sel.value ? parseInt(sel.value) : null);
+  document.getElementById('routine-tag-input').value = '';
+  routineRenderTag();
+  updateTagDatalist();
   document.getElementById('routine-link').value = r && r.link ? r.link : '';
   document.getElementById('routine-edit-modal').classList.add('open');
   setTimeout(() => document.getElementById('routine-text').focus(), 50);
 }
 
 function routineCloseEdit() { document.getElementById('routine-edit-modal').classList.remove('open'); }
+
+function routineRenderTag() {
+  const el = document.getElementById('routine-tag-chips');
+  const input = document.getElementById('routine-tag-input');
+  if (!el) return;
+  const tg = _routineEditTag;
+  el.innerHTML = tg
+    ? `<span class="tag-chip tc-${tagColorIndex(tg)}"><button type="button" class="tag-chip-dot tc-${tagColorIndex(tg)}" data-tag="${escHtml(tg)}" title="Change color" onclick="event.stopPropagation();tagColorPopupOpen(this.dataset.tag,this,function(){render();routineRenderTag();routinesRenderList();})"></button>${escHtml(tg)}<span class="tag-chip-x" onclick="event.stopPropagation();_routineEditTag=null;routineRenderTag()">×</span></span>`
+    : '';
+  if (input) input.style.display = tg ? 'none' : '';
+}
+
+function routineTaskChanged(sel) {
+  const oldId = sel.dataset.prev ? parseInt(sel.dataset.prev) : null;
+  const newId = sel.value ? parseInt(sel.value) : null;
+  _routineEditTag = tagAfterProjectChange(_routineEditTag, oldId, newId);
+  sel.dataset.prev = sel.value;
+  routineRenderTag();
+}
 
 function routineSave() {
   const text = document.getElementById('routine-text').value.trim();
@@ -6648,6 +6736,8 @@ function routineSave() {
     if (!isNaN(v) && v > 0) _routineEditEst = v;
   }
   const estMins = _routineEditEst || null;
+  tagInputCommit('routine');
+  const tag = _routineEditTag || null;
   const idxVal = document.getElementById('routine-edit-id').value;
   if (idxVal !== '') {
     const r = routines[parseInt(idxVal)];
@@ -6657,8 +6747,9 @@ function routineSave() {
     r.taskName = task ? task.name : null;
     r.link = link;
     r.estMins = estMins;
+    r.tag = tag;
   } else {
-    routines.push({ id: Date.now(), text, days: _routineEditDays.slice(), taskId: task ? task.id : null, taskName: task ? task.name : null, link, estMins, lastGenDate: null });
+    routines.push({ id: Date.now(), text, days: _routineEditDays.slice(), taskId: task ? task.id : null, taskName: task ? task.name : null, tag, link, estMins, lastGenDate: null });
   }
   routinesSaveStore();
   routinesRenderList();
@@ -6726,7 +6817,7 @@ function dailyMoveToBacklog(id) {
   const item = dailyItems.find(i => i.id === id);
   if (!item) return;
   dailyItems = dailyItems.filter(i => i.id !== id);
-  backlogItems.unshift({ id: Date.now(), text: item.text, taskId: item.taskId || null, taskName: item.taskName || null, link: item.link || null, estMins: item.estMins || null, ts: new Date().toISOString() });
+  backlogItems.unshift({ id: Date.now(), text: item.text, taskId: item.taskId || null, taskName: item.taskName || null, tag: itemTag(item), link: item.link || null, estMins: item.estMins || null, ts: new Date().toISOString() });
   dailySave();
   dailyRender();
   showToast('Moved to backlog');
@@ -6764,12 +6855,14 @@ function dailyAdd() {
   if (!text) return;
   const taskId = sel ? sel.value : '';
   const task = taskId ? tasks.find(t => t.id === parseInt(taskId)) : null;
+  const tagInp = document.getElementById('daily-add-tag');
   dailyItems.push({
     id: Date.now(),
     text,
     date: dailyLocalDate(_dailyAddDate === 'tomorrow' ? 1 : 0),
     taskId: task ? task.id : null,
     taskName: task ? task.name : null,
+    tag: (tagInp && tagInp.value.trim()) || null,
     done: false,
     ts: new Date().toISOString()
   });
@@ -6827,6 +6920,7 @@ function dailyDropToTomorrow(e) {
         date: tomorrow,
         taskId: item.taskId || null,
         taskName: item.taskName || null,
+        tag: itemTag(item),
         link: item.link || null,
         estMins: item.estMins || null,
         done: false,
@@ -6861,6 +6955,7 @@ function dailyMoveToToday(id) {
     date: dailyLocalDate(),
     taskId: item.taskId || null,
     taskName: item.taskName || null,
+    tag: itemTag(item),
     link: item.link || null,
     estMins: item.estMins || null,
     done: false,
@@ -6885,38 +6980,54 @@ function dailyBacklogAdd() {
   if (!text) return;
   const taskId = sel && sel.value ? parseInt(sel.value) : null;
   const taskName = taskId ? (tasks.find(t => t.id === taskId) || {}).name || null : null;
-  backlogItems.unshift({ id: Date.now(), text, taskId, taskName, ts: new Date().toISOString() });
+  const tagInp = document.getElementById('backlog-add-tag');
+  const tag = (tagInp && tagInp.value.trim()) || null;
+  backlogItems.unshift({ id: Date.now(), text, taskId, taskName, tag, ts: new Date().toISOString() });
   dailySave();
   if (inp) inp.value = '';
   if (sel) sel.value = '';
   dailyRender();
 }
 
-function dailyBacklogLinkTask(id) {
-  const item = backlogItems.find(i => i.id === id);
+// Project + tag picker for a daily or backlog item (kind: 'daily' | 'backlog')
+function itemLinkPickerOpen(kind, id) {
+  const list = kind === 'daily' ? dailyItems : backlogItems;
+  const item = list.find(i => i.id === id);
   if (!item) return;
-  const existing = document.getElementById('blp-' + id);
+  const pid = kind + '-lp-' + String(id).replace('.', '_');
+  const existing = document.getElementById(pid);
   if (existing) { existing.remove(); return; }
   document.querySelectorAll('.backlog-link-picker').forEach(el => el.remove());
-  const tag = document.querySelector('[data-blp="' + id + '"]');
-  if (!tag) return;
+  const anchor = document.querySelector('[data-lp="' + kind + '-' + id + '"]');
+  if (!anchor) return;
+  updateTagDatalist();
   const taskOptions = tasks.filter(t => t.status !== 'done')
     .map(t => '<option value="' + t.id + '"' + (item.taskId === t.id ? ' selected' : '') + '>' + (t.name.length > 32 ? t.name.slice(0,32)+'…' : t.name) + '</option>').join('');
   const picker = document.createElement('div');
   picker.className = 'backlog-link-picker';
-  picker.id = 'blp-' + id;
-  picker.innerHTML = '<select id="blp-sel-' + id + '"><option value="">Link to project (optional)</option>' + taskOptions + '</select><div class="backlog-link-picker-btns"><button onclick="document.getElementById(\'blp-' + id + '\').remove()">Cancel</button><button class="blp-save" onclick="dailyBacklogSaveLink(' + id + ')">Save</button></div>';
-  tag.parentElement.style.position = 'relative';
-  tag.parentElement.appendChild(picker);
+  picker.id = pid;
+  if (kind === 'daily') { picker.style.right = '0'; picker.style.top = '100%'; }
+  picker.onclick = e => e.stopPropagation();
+  picker.innerHTML = '<select id="' + pid + '-sel" data-prev="' + (item.taskId || '') + '" onchange="tagInputFollowProject(this,\'' + pid + '-tag\')"><option value="">Link to project (optional)</option>' + taskOptions + '</select>'
+    + '<input id="' + pid + '-tag" list="tag-suggestions" placeholder="Tag (optional)" value="' + escHtml(itemTag(item) || '') + '" onkeydown="if(event.key===\'Enter\')itemLinkPickerSave(\'' + kind + '\',' + id + ')">'
+    + '<div class="backlog-link-picker-btns"><button onclick="document.getElementById(\'' + pid + '\').remove()">Cancel</button><button class="blp-save" onclick="itemLinkPickerSave(\'' + kind + '\',' + id + ')">Save</button></div>';
+  anchor.parentElement.style.position = 'relative';
+  anchor.parentElement.appendChild(picker);
 }
 
-function dailyBacklogSaveLink(id) {
-  const sel = document.getElementById('blp-sel-' + id);
+function itemLinkPickerSave(kind, id) {
+  const pid = kind + '-lp-' + String(id).replace('.', '_');
+  const sel = document.getElementById(pid + '-sel');
+  const tagInp = document.getElementById(pid + '-tag');
   if (!sel) return;
   const taskId = sel.value ? parseInt(sel.value) : null;
   const taskName = taskId ? (tasks.find(t => t.id === taskId) || {}).name || null : null;
-  const item = backlogItems.find(i => i.id === id);
-  if (item) { item.taskId = taskId; item.taskName = taskName; }
+  const item = (kind === 'daily' ? dailyItems : backlogItems).find(i => i.id === id);
+  if (item) {
+    item.taskId = taskId;
+    item.taskName = taskName;
+    item.tag = (tagInp && tagInp.value.trim()) || null;
+  }
   dailySave();
   dailyRender();
 }
@@ -7381,9 +7492,10 @@ function dailyRender() {
 
   const renderItem = (item, isRollover) => {
     const _tagStyle = item.taskId ? dtagStyle(item.taskId) : '';
-    const tagHtml = item.taskName
+    const projPill = item.taskName
       ? `<span class="daily-item-tag" style="${_tagStyle}" title="${item.taskName}">${item.taskName.length > 22 ? item.taskName.slice(0,22)+'…' : item.taskName}</span>`
       : `<span class="daily-item-tag none">Others</span>`;
+    const tagHtml = `<span data-lp="daily-${item.id}" onclick="event.stopPropagation();itemLinkPickerOpen('daily',${item.id})" title="Change project / tag" style="display:inline-flex;align-items:center;cursor:pointer">${projPill}</span>`;
     const starHtml = `<button class="daily-item-star${item.starred?' starred':''}" onclick="event.stopPropagation();dailyStar(${item.id})" title="${item.starred?'Unstar':'Star'}">${item.starred?'★':'☆'}</button>`;
     const pomoHtml = `<button class="daily-item-pomo-btn" onclick="event.stopPropagation();goToPomodoro(${item.taskId||'null'},'${(item.taskName||'').replace(/'/g,"\\'")}','${item.text.replace(/'/g,"\\'")}',${item.estMins||'null'},${item.id});" title="Start Pomodoro for this task">🍅</button>`;
     const logHtml = `<button class="daily-item-pomo-btn" onclick="event.stopPropagation();dailyLogTime(${item.id})" title="Log time manually${item.estMins?' ('+estFmt(item.estMins)+')':''}">📝</button>`;
@@ -7467,10 +7579,12 @@ function dailyRender() {
       <div style="position:relative;flex:1">
         <input class="daily-add-input" id="daily-add-input" placeholder="${_dailyAddDate==='tomorrow' ? 'Add a task for tomorrow…' : 'Add a task for today…'}" onkeydown="if(event.key==='Enter')dailyAdd()" style="width:100%;box-sizing:border-box">
       </div>
-      <select class="daily-task-select" id="daily-task-select">
+      <select class="daily-task-select" id="daily-task-select" data-prev="" onchange="tagInputFollowProject(this,'daily-add-tag')">
         <option value="">Link to project (optional)</option>
         ${taskOptions}
       </select>
+      <input class="daily-task-select" id="daily-add-tag" list="tag-suggestions" placeholder="Tag" onfocus="updateTagDatalist()" onkeydown="if(event.key==='Enter')dailyAdd()" style="width:96px">
+
       <button class="btn btn-primary" onclick="dailyAdd()" style="white-space:nowrap">Add</button>
     </div>`;
     main.innerHTML = html;
@@ -7501,7 +7615,7 @@ function dailyRender() {
     const backlogHtml = backlogItems.length === 0
       ? `<div class="empty empty-sm"><div class="empty-icon">📋</div><div class="empty-text">Backlog is empty</div></div>`
       : backlogItems.map(i => {
-          const tagLabel = i.taskName || '+ link project';
+          const tagLabel = i.taskName || '+ project / tag';
           const tagClass = i.taskName ? 'backlog-task-tag linked' : 'backlog-task-tag unlinked';
           const tagStyle = i.taskName && i.taskId ? dtagStyle(i.taskId) : '';
           const blinkHtml = i.link
@@ -7519,7 +7633,7 @@ function dailyRender() {
               <button class="backlog-to-today" onclick="dailyMoveToToday(${i.id})" title="Move to today">←</button>
               <span class="backlog-schedule-wrap"><button class="backlog-schedule-btn${i.scheduledDate ? ' has-date' : ''}" title="${i.scheduledDate ? 'Change scheduled date' : 'Schedule for a date'}" onclick="this.nextElementSibling.showPicker?this.nextElementSibling.showPicker():this.nextElementSibling.click()">${i.scheduledDate ? '<span style="position:relative;top:1px">' + (d=>{const parts=d.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'}).replace(',','').split(' ');return parts[1]+' '+parts[2]+' '+parts[0];})(new Date(i.scheduledDate+'T00:00:00')) + '</span>' : '<span style="position:relative;top:1px">📅</span>'}</button><input type="date" class="backlog-date-hidden" value="${i.scheduledDate || ''}" onchange="backlogSetSchedule(${i.id}, this.value)"></span>
               ${bestHtml}
-              <button class="daily-item-tag side-tag${i.taskName && i.taskId ? '' : ' none'}" data-blp="${i.id}" onclick="dailyBacklogLinkTask(${i.id})" title="${i.taskName || 'Link to project'}" style="margin-left:auto;${tagStyle}">${i.taskName ? '⛓ ' : ''}${tagLabel}</button>
+              <button class="daily-item-tag side-tag${i.taskName && i.taskId ? '' : ' none'}" data-lp="backlog-${i.id}" onclick="itemLinkPickerOpen('backlog',${i.id})" title="${i.taskName ? i.taskName + ' — change project / tag' : 'Link to project / set tag'}" style="margin-left:auto;${tagStyle}">${i.taskName ? '⛓ ' : ''}${tagLabel}</button>
             </div>
           </div>`;
         }).join('');
@@ -7531,9 +7645,10 @@ function dailyRender() {
           <div style="position:relative">
             <input class="backlog-add-input" id="backlog-add-input" placeholder="Add to backlog…" onkeydown="if(event.key==='Enter')dailyBacklogAdd()" style="width:100%;box-sizing:border-box">
           </div>
-          <select class="daily-task-select" id="backlog-add-task-sel" style="font-size:12px;width:100%;max-width:none">
+          <select class="daily-task-select" id="backlog-add-task-sel" data-prev="" onchange="tagInputFollowProject(this,'backlog-add-tag')" style="font-size:12px;width:100%;max-width:none">
               <option value="">Link to project (optional)</option>${taskOptsForAdd}
             </select>
+          <input class="daily-task-select" id="backlog-add-tag" list="tag-suggestions" placeholder="Tag (optional)" onfocus="updateTagDatalist()" onkeydown="if(event.key==='Enter')dailyBacklogAdd()" style="font-size:12px;width:100%;max-width:none;box-sizing:border-box">
           </div>
           <button class="backlog-add-btn" onclick="dailyBacklogAdd()" style="align-self:stretch;padding:0 12px;font-size:16px">+</button>
         </div>
@@ -8240,6 +8355,7 @@ function cycleTheme() {
 }
 (function() {
   const saved = localStorage.getItem('jtt_theme') || 'green';
+  migrateItemTags();
   backlogAutoSchedule();
   routineGenerate();
   routineUpdateBadge();
