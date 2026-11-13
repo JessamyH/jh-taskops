@@ -102,7 +102,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
 .task-check.checked{background:var(--sky);border-color:var(--sky);color:#fff;font-size:11px}
 .task-check.in-progress{border-color:var(--sage);color:var(--sage)}
 .task-check.review{border-color:var(--amber);color:var(--amber)}
-.task-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-name{font-size:13px;-webkit-text-stroke:.3px currentColor;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .task-meta{display:flex;align-items:center;gap:9px;margin-top:1px;flex-wrap:wrap}
 .task-from{font-size:11px;color:var(--muted)}
 .task-date{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace}
@@ -140,7 +140,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
 .kanban-card:hover{border-color:var(--border2);box-shadow:var(--shadow);transform:translateY(-1px)}
 .kanban-card.dragging{opacity:.35;cursor:grabbing;transform:scale(.97);box-shadow:none}
 .kanban-card.kcard-drop-above{border-top:1px solid var(--sage);border-radius:10px}
-.kcard-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:7px;line-height:1.4}
+.kcard-name{font-size:13px;-webkit-text-stroke:.3px currentColor;color:var(--text);margin-bottom:7px;line-height:1.4}
 .kcard-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:0}
 .kcard-from{font-size:11px;color:var(--muted)}
 .kcard-due{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted2)}
@@ -707,6 +707,7 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
   .daily-add-row{flex-wrap:wrap}
   .daily-add-row>div[style*="position:relative"]{flex:1 1 150px!important;min-width:0}
   .daily-add-row .daily-task-select{flex:1 1 140px;min-width:0;width:auto}
+  .daily-add-row input,.daily-add-row select{font-size:12px!important;height:36px;padding-top:0;padding-bottom:0;box-sizing:border-box}
   /* Projects – kanban: stack the status columns vertically, full width */
   .kanban-wrap{overflow:visible}
   .kanban-board{grid-template-columns:minmax(0,1fr);min-width:0;gap:12px}
@@ -7645,10 +7646,12 @@ function dailyRender() {
           <div style="position:relative">
             <input class="backlog-add-input" id="backlog-add-input" placeholder="Add to backlog…" onkeydown="if(event.key==='Enter')dailyBacklogAdd()" style="width:100%;box-sizing:border-box">
           </div>
-          <select class="daily-task-select" id="backlog-add-task-sel" data-prev="" onchange="tagInputFollowProject(this,'backlog-add-tag')" style="font-size:12px;width:100%;max-width:none">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="daily-task-select" id="backlog-add-tag" list="tag-suggestions" placeholder="Tag" onfocus="updateTagDatalist()" onkeydown="if(event.key==='Enter')dailyBacklogAdd()" style="font-size:12px;width:96px;flex-shrink:0;max-width:none;box-sizing:border-box">
+            <select class="daily-task-select" id="backlog-add-task-sel" data-prev="" onchange="tagInputFollowProject(this,'backlog-add-tag')" style="font-size:12px;flex:1;min-width:0;max-width:none">
               <option value="">Link to project (optional)</option>${taskOptsForAdd}
             </select>
-          <input class="daily-task-select" id="backlog-add-tag" list="tag-suggestions" placeholder="Tag (optional)" onfocus="updateTagDatalist()" onkeydown="if(event.key==='Enter')dailyBacklogAdd()" style="font-size:12px;width:100%;max-width:none;box-sizing:border-box">
+          </div>
           </div>
           <button class="backlog-add-btn" onclick="dailyBacklogAdd()" style="align-self:stretch;padding:0 12px;font-size:16px">+</button>
         </div>
