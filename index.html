@@ -1526,6 +1526,10 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
             </div>
             <div class="pomo-task-cur" id="pomo-task-cur"></div>
             <div style="margin-top:10px">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase;margin-bottom:5px">Tag</div>
+              <input class="pomo-task-select" id="pomo-session-tag" type="text" list="tag-suggestions" placeholder="Tag (optional)" maxlength="40" style="width:100%;box-sizing:border-box" onfocus="updateTagDatalist()" oninput="pomoSaveState()">
+            </div>
+            <div style="margin-top:10px">
               <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase;margin-bottom:5px">Note</div>
               <div style="position:relative">
                 <div style="display:flex;gap:6px;align-items:center">
@@ -1663,6 +1667,10 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
         <option value="">— None (logged as Others) —</option>
       </select>
     </div>
+    <div class="form-group">
+      <label class="form-label">Tag</label>
+      <input class="form-input" id="me-tag" list="tag-suggestions" placeholder="Tag (optional)" maxlength="40" onfocus="updateTagDatalist()">
+    </div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Duration (min)</label>
@@ -1698,6 +1706,56 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
     <div class="modal-actions">
       <button class="btn" onclick="closeManualEntry()">Cancel</button>
       <button class="btn btn-primary" onclick="saveManualEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Daily Item Edit Modal -->
+<div class="modal-overlay" id="daily-edit-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div class="modal-title">Edit Task</div>
+      <button class="modal-close" onclick="closeDailyEdit()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Task</label>
+      <input class="form-input" id="de-text" placeholder="What needs doing?" onkeydown="if(event.key==='Enter')saveDailyEdit()">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Project</label>
+        <select class="form-select" id="de-task" onchange="tagInputFollowProject(this,'de-tag')"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tag</label>
+        <input class="form-input" id="de-tag" list="tag-suggestions" placeholder="Tag (optional)" maxlength="40" onfocus="updateTagDatalist()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Estimate (min)</label>
+        <input class="form-input" id="de-est" type="number" min="1" max="1440" placeholder="e.g. 45">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Link</label>
+        <input class="form-input" id="de-link" type="url" placeholder="https://…">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="de-notes" placeholder="Details, context, next steps…" style="min-height:80px"></textarea>
+    </div>
+    <div class="form-group" style="display:flex;gap:18px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text)">
+        <input type="checkbox" id="de-starred" style="width:15px;height:15px;accent-color:var(--sage);cursor:pointer"> Starred
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text)">
+        <input type="checkbox" id="de-done" style="width:15px;height:15px;accent-color:var(--sage);cursor:pointer"> Done
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeDailyEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDailyEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -2310,7 +2368,14 @@ function goToPomodoro(taskId, taskName, itemText, estMins, dailyItemId) {
   const sel = document.getElementById('pomo-task-sel');
   if (sel) {
     sel.value = taskId ? String(taskId) : '';
+    sel.dataset.prev = sel.value;
     pomoRenderNoteChips();
+  }
+  // Tag defaults to the Daily item's own tag, falling back to the project's
+  const tagEl = document.getElementById('pomo-session-tag');
+  if (tagEl) {
+    const item = dailyItemId ? dailyItems.find(i => i.id === dailyItemId) : null;
+    tagEl.value = (item ? itemTag(item) : projectTag(taskId)) || '';
   }
   // Pre-fill note with item text
   const noteEl = document.getElementById('pomo-session-note');
@@ -2335,6 +2400,8 @@ function goToPomodoro(taskId, taskName, itemText, estMins, dailyItemId) {
 function pomoTaskSelChanged() {
   // Manually switching the task means this session is no longer tied to the Daily item that launched it
   pomoLinkedDailyItemId = null;
+  const sel = document.getElementById('pomo-task-sel');
+  if (sel) tagInputFollowProject(sel, 'pomo-session-tag');
   pomoRenderNoteChips();
   pomoSaveState();
 }
@@ -2403,13 +2470,12 @@ function tagInputFollowProject(sel, inputId) {
   if (inp) inp.value = tagAfterProjectChange(inp.value.trim(), oldId, newId) || '';
   sel.dataset.prev = sel.value;
 }
-// Tag for a focus session logged from a Daily List item. Undefined (not stored)
-// when there's no item or its project was changed, so reports fall back to the project.
-function sessionTagFor(dailyItemId, taskId) {
-  const item = dailyItemId != null ? dailyItems.find(i => i.id === dailyItemId) : null;
-  if (!item || (item.taskId || null) !== (taskId || null)) return undefined;
-  return itemTag(item);
+// Tag chosen in the Pomodoro panel for the session in progress (null = untagged).
+function pomoCurrentTag() {
+  const el = document.getElementById('pomo-session-tag');
+  return (el && el.value.trim()) || null;
 }
+// Sessions logged before tags were editable have no `tag` field and fall back to the project's tags.
 function sessionTags(e) {
   if (e.tag !== undefined) return e.tag ? [e.tag] : [];
   const t = tasks.find(x => x.id === e.taskId) || tasks.find(x => x.name === e.taskName);
@@ -3732,6 +3798,7 @@ function pomoSaveState() {
   if (idle) { localStorage.removeItem(POMO_STATE_KEY); return; }
   const noteEl = document.getElementById('pomo-session-note');
   const taskSel = document.getElementById('pomo-task-sel');
+  const tagEl = document.getElementById('pomo-session-tag');
   const state = {
     mode: pomoMode,
     remaining: pomoRemaining,
@@ -3743,6 +3810,7 @@ function pomoSaveState() {
     session: pomoSession,
     linkedDailyItemId: pomoLinkedDailyItemId,
     taskId: taskSel ? taskSel.value : '',
+    tag: tagEl ? tagEl.value : '',
     note: noteEl ? noteEl.value : '',
     savedAt: Date.now()
   };
@@ -3791,6 +3859,9 @@ function pomoRestoreState() {
   pomoPopulateTaskSelect();
   const sel = document.getElementById('pomo-task-sel');
   if (sel && s.taskId) sel.value = s.taskId;
+  if (sel) sel.dataset.prev = sel.value;
+  const tagEl = document.getElementById('pomo-session-tag');
+  if (tagEl) tagEl.value = s.tag !== undefined ? s.tag : (projectTag(parseInt(s.taskId) || null) || '');
   const noteEl = document.getElementById('pomo-session-note');
   if (noteEl && s.note) noteEl.value = s.note;
   pomoUpdateSettingsBtnState();
@@ -4020,7 +4091,7 @@ function pomoFinishFocusSession(elapsedSec, wasOvertime) {
     mins: mins,
     taskId: taskId,
     taskName: taskName,
-    tag: sessionTagFor(pomoLinkedDailyItemId, taskId),
+    tag: pomoCurrentTag(),
     note: note,
     ts: (pomoSessionStartTime || new Date()).toISOString()
   };
@@ -4396,7 +4467,7 @@ function pomoRenderLog() {
     return `<div class="pomo-log-item" id="plog-${e.id}">
       <span class="pomo-log-dot" style="background:${color}"></span>
       <div class="pomo-log-info">
-        <div class="pomo-log-task">${e.taskName || 'Others'}${manualTag}</div>
+        <div class="pomo-log-task">${e.taskName || 'Others'}${e.type === 'focus' ? sessionTags(e).map(tg => `<span class="kcard-tag ${tagColorClass(tg)}" style="margin-left:6px">${escHtml(tg)}</span>`).join('') : ''}${manualTag}</div>
         <div class="pomo-log-meta">${date} · ${time}${e.type === 'focus' && e.mins ? ' · ' + e.mins + 'min' : ''}</div>
         ${noteTag}
       </div>
@@ -4423,6 +4494,7 @@ function pomoEditEntry(id) {
   openManualEntry({
     editId: id,
     taskId: entry.taskId != null ? entry.taskId : null,
+    tag: sessionTags(entry)[0] || '',
     note: entry.note || '',
     mins: entry.mins || 60,
     date: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'),
@@ -5050,6 +5122,7 @@ function pomoInit() {
 // ── Manual Entry
 let _meDailyItemId = null;
 let _meEditId = null;
+let _meOrigTag = ''; // tag shown when the modal opened, to tell an edit apart from an untouched fallback
 // prefill (optional): { taskId, note, mins, date, time, itemId, editId } — used when jumping
 // in from the Daily List (task/estimate/text carry over) or when editing an existing session
 // log entry (editId set, so Save updates that entry instead of creating a new one).
@@ -5069,8 +5142,12 @@ function openManualEntry(prefill) {
   const cur = prefill ? (prefill.taskId != null ? String(prefill.taskId) : '') : sel.value;
   sel.innerHTML = '<option value="">— None (logged as Others) —</option>' +
     tasks.map(t => `<option value="${t.id}"${String(t.id)===cur?' selected':''}>${t.name}</option>`).join('');
-  sel.onchange = meRenderNoteChips;
+  sel.dataset.prev = sel.value;
+  sel.onchange = () => { tagInputFollowProject(sel, 'me-tag'); meRenderNoteChips(); };
   meRenderNoteChips();
+  const tagEl = document.getElementById('me-tag');
+  tagEl.value = (prefill && prefill.tag !== undefined) ? (prefill.tag || '') : (projectTag(sel.value ? parseInt(sel.value) : null) || '');
+  _meOrigTag = tagEl.value;
   _meDailyItemId = (prefill && prefill.itemId) || null;
   const doneRow = document.getElementById('me-done-row');
   const doneChk = document.getElementById('me-mark-done');
@@ -5097,6 +5174,7 @@ function dailyLogTime(id) {
   const today = dailyLocalDate();
   openManualEntry({
     taskId: item.taskId || null,
+    tag: itemTag(item) || '',
     note: item.text,
     mins: item.estMins || 60,
     date: item.date <= today ? item.date : today,
@@ -5179,6 +5257,7 @@ function saveManualEntry() {
   const taskSel = document.getElementById('me-task');
   const taskId = taskSel.value ? parseInt(taskSel.value) : null;
   const note = document.getElementById('me-note').value.trim();
+  const tag = document.getElementById('me-tag').value.trim() || null;
 
   if (!minsRaw || minsRaw < 1) { showToast('Please enter a valid duration'); return; }
   if (!dateVal) { showToast('Please select a date'); return; }
@@ -5190,7 +5269,8 @@ function saveManualEntry() {
     const entry = pomoLog.find(e => e.id === _meEditId);
     if (entry) {
       entry.mins = minsRaw;
-      if (entry.taskId !== taskId) delete entry.tag; // project changed: tag follows the new project
+      // Leave legacy entries (no `tag` field, multi-tag project fallback) alone unless something changed
+      if (entry.tag !== undefined || entry.taskId !== taskId || (tag || '') !== _meOrigTag) entry.tag = tag;
       entry.taskId = taskId;
       entry.taskName = taskName;
       entry.note = note || '';
@@ -5209,7 +5289,7 @@ function saveManualEntry() {
     mins: minsRaw,
     taskId: taskId,
     taskName: taskName,
-    tag: sessionTagFor(_meDailyItemId, taskId),
+    tag: tag,
     note: note || '',
     manual: true,
     ts: new Date(tsStr).toISOString()
@@ -6503,6 +6583,7 @@ function backlogAutoSchedule() {
       taskName: item.taskName || null,
       tag: itemTag(item),
       link: item.link || null,
+      notes: item.notes || null,
       estMins: item.estMins || null,
       done: false,
       ts: new Date().toISOString()
@@ -6806,6 +6887,61 @@ function dailyToggle(id) {
   dailyRender();
 }
 
+// ── Daily item edit modal: the card's ✎ button opens every field for editing
+let _deItemId = null;
+
+function openDailyEdit(id) {
+  const item = dailyItems.find(i => i.id === id);
+  if (!item) return;
+  _deItemId = id;
+  document.getElementById('de-text').value = item.text || '';
+  const sel = document.getElementById('de-task');
+  const cur = item.taskId ? String(item.taskId) : '';
+  // Keep the current project listed even if it's done, so saving doesn't silently unlink it
+  sel.innerHTML = '<option value="">— None (Others) —</option>' +
+    tasks.filter(t => t.status !== 'done' || String(t.id) === cur)
+      .map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('');
+  sel.value = cur;
+  sel.dataset.prev = sel.value;
+  document.getElementById('de-tag').value = itemTag(item) || '';
+  document.getElementById('de-est').value = item.estMins || '';
+  document.getElementById('de-link').value = item.link || '';
+  document.getElementById('de-notes').value = item.notes || '';
+  document.getElementById('de-starred').checked = !!item.starred;
+  document.getElementById('de-done').checked = !!item.done;
+  document.querySelectorAll('.daily-link-popup').forEach(el => el.remove());
+  document.getElementById('daily-edit-modal').classList.add('open');
+  setTimeout(() => document.getElementById('de-text').focus(), 50);
+}
+
+function closeDailyEdit() {
+  document.getElementById('daily-edit-modal').classList.remove('open');
+  _deItemId = null;
+}
+
+function saveDailyEdit() {
+  const item = dailyItems.find(i => i.id === _deItemId);
+  if (!item) { closeDailyEdit(); return; }
+  const text = document.getElementById('de-text').value.trim();
+  if (!text) { showToast('Task can\'t be empty'); return; }
+  const estRaw = parseInt(document.getElementById('de-est').value);
+  const taskId = parseInt(document.getElementById('de-task').value) || null;
+  const task = taskId ? tasks.find(t => t.id === taskId) : null;
+  item.text = text;
+  item.taskId = task ? task.id : null;
+  item.taskName = task ? task.name : null;
+  item.tag = document.getElementById('de-tag').value.trim() || null;
+  item.estMins = estRaw > 0 ? estRaw : null;
+  item.link = document.getElementById('de-link').value.trim() || null;
+  item.notes = document.getElementById('de-notes').value.trim() || null;
+  item.starred = document.getElementById('de-starred').checked;
+  item.done = document.getElementById('de-done').checked;
+  dailySave();
+  dailyRender();
+  closeDailyEdit();
+  showToast('✅ Task updated');
+}
+
 function dailyDropToBacklog(e) {
   e.preventDefault();
   if (!_dailyDragId) return;
@@ -6837,7 +6973,7 @@ function dailyMoveToBacklog(id) {
   const item = dailyItems.find(i => i.id === id);
   if (!item) return;
   dailyItems = dailyItems.filter(i => i.id !== id);
-  backlogItems.unshift({ id: Date.now(), text: item.text, taskId: item.taskId || null, taskName: item.taskName || null, tag: itemTag(item), link: item.link || null, estMins: item.estMins || null, ts: new Date().toISOString() });
+  backlogItems.unshift({ id: Date.now(), text: item.text, taskId: item.taskId || null, taskName: item.taskName || null, tag: itemTag(item), link: item.link || null, notes: item.notes || null, estMins: item.estMins || null, ts: new Date().toISOString() });
   dailySave();
   dailyRender();
   showToast('Moved to backlog');
@@ -6942,6 +7078,7 @@ function dailyDropToTomorrow(e) {
         taskName: item.taskName || null,
         tag: itemTag(item),
         link: item.link || null,
+        notes: item.notes || null,
         estMins: item.estMins || null,
         done: false,
         ts: new Date().toISOString()
@@ -6977,6 +7114,7 @@ function dailyMoveToToday(id) {
     taskName: item.taskName || null,
     tag: itemTag(item),
     link: item.link || null,
+    notes: item.notes || null,
     estMins: item.estMins || null,
     done: false,
     ts: new Date().toISOString()
@@ -7026,13 +7164,44 @@ function itemLinkPickerOpen(kind, id) {
   const picker = document.createElement('div');
   picker.className = 'backlog-link-picker';
   picker.id = pid;
-  if (kind === 'daily') { picker.style.right = '0'; picker.style.top = '100%'; }
   picker.onclick = e => e.stopPropagation();
   picker.innerHTML = '<select id="' + pid + '-sel" data-prev="' + (item.taskId || '') + '" onchange="tagInputFollowProject(this,\'' + pid + '-tag\')"><option value="">Link to project (optional)</option>' + taskOptions + '</select>'
     + '<input id="' + pid + '-tag" list="tag-suggestions" placeholder="Tag (optional)" value="' + escHtml(itemTag(item) || '') + '" onkeydown="if(event.key===\'Enter\')itemLinkPickerSave(\'' + kind + '\',' + id + ')">'
     + '<div class="backlog-link-picker-btns"><button onclick="document.getElementById(\'' + pid + '\').remove()">Cancel</button><button class="blp-save" onclick="itemLinkPickerSave(\'' + kind + '\',' + id + ')">Save</button></div>';
-  anchor.parentElement.style.position = 'relative';
-  anchor.parentElement.appendChild(picker);
+  placeFloatingPicker(picker, anchor);
+}
+
+// Pickers live on <body> with fixed coords so scrolling lists (Backlog, Blockers)
+// can't clip them. Opens below the anchor, flips above when there's no room, and
+// closes on outside click or any scroll (fixed coords would drift otherwise).
+function placeFloatingPicker(picker, anchor) {
+  picker.style.position = 'fixed';
+  picker.style.visibility = 'hidden';
+  document.body.appendChild(picker);
+  const a = anchor.getBoundingClientRect(), p = picker.getBoundingClientRect(), m = 8;
+  const left = Math.max(m, Math.min(a.right - p.width, window.innerWidth - p.width - m));
+  let top = a.bottom + 6;
+  if (top + p.height > window.innerHeight - m && a.top - 6 - p.height >= m) top = a.top - 6 - p.height;
+  picker.style.left = left + 'px';
+  picker.style.top = top + 'px';
+  picker.style.visibility = '';
+  const cleanup = () => {
+    document.removeEventListener('mousedown', onDown, true);
+    window.removeEventListener('scroll', onScroll, true);
+    window.removeEventListener('resize', close);
+  };
+  const close = () => { picker.remove(); cleanup(); };
+  const onDown = e => {
+    if (!picker.isConnected) return cleanup();
+    if (!picker.contains(e.target) && !anchor.contains(e.target)) close();
+  };
+  const onScroll = e => {
+    if (!picker.isConnected) return cleanup();
+    if (!(e.target instanceof Node && picker.contains(e.target))) close();
+  };
+  document.addEventListener('mousedown', onDown, true);
+  window.addEventListener('scroll', onScroll, true);
+  window.addEventListener('resize', close);
 }
 
 function itemLinkPickerSave(kind, id) {
@@ -7048,6 +7217,8 @@ function itemLinkPickerSave(kind, id) {
     item.taskName = taskName;
     item.tag = (tagInp && tagInp.value.trim()) || null;
   }
+  const picker = document.getElementById(pid);
+  if (picker) picker.remove();
   dailySave();
   dailyRender();
 }
@@ -7526,14 +7697,14 @@ function dailyRender() {
     return `<div class="daily-item${isRollover?' rollover':''}${item.done?' done':''}${item.starred?' starred-item':''}" id="ditem-${item.id}" draggable="true" ondragstart="dailyDragStart(event,${item.id})" ondragover="dailyDragOver(event,${item.id})" ondragleave="dailyDragLeave(event)" ondrop="dailyDrop(event,${item.id})" ondragend="dailyDragEnd(event)">
       <div class="daily-check${item.done?' checked':''}" onclick="dailyToggle(${item.id})"></div>
       <div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0">
-        <span class="daily-item-text" ondblclick="dailyInlineEdit(${item.id})" title="Double-click to edit">${item.text} ${pomoHtml} ${logHtml} ${starHtml} ${linkHtml}</span>
+        <span class="daily-item-text" ondblclick="dailyInlineEdit(${item.id})" title="Double-click to rename">${item.text} ${pomoHtml} ${logHtml} ${starHtml} ${linkHtml}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         ${estHtml}
         ${tagHtml}
         <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
           <div style="display:flex;gap:4px;margin-right:3px">
-            <button class="daily-item-edit" onclick="dailyInlineEdit(${item.id})" title="Edit">✎</button>
+            <button class="daily-item-edit" onclick="openDailyEdit(${item.id})" title="Edit">✎</button>
             <button class="daily-item-del" onclick="dailyDelete(${item.id})">✕</button>
           </div>
           <div style="display:flex;gap:4px;width:100%;justify-content:flex-end">
@@ -7890,8 +8061,7 @@ function blockerLinkTask(id) {
   picker.className = 'backlog-link-picker blocker-link-picker';
   picker.id = 'blkr-lp-' + id;
   picker.innerHTML = `<select id="blkr-lp-sel-${id}"><option value="">Link to project (optional)</option>${taskOptions}</select><div class="backlog-link-picker-btns"><button onclick="document.getElementById('blkr-lp-${id}').remove()">Cancel</button><button class="blp-save" onclick="blockerLinkSave(${id})">Save</button></div>`;
-  btn.parentElement.style.position = 'relative';
-  btn.parentElement.appendChild(picker);
+  placeFloatingPicker(picker, btn);
 }
 
 function blockerLinkSave(id) {
@@ -7902,6 +8072,8 @@ function blockerLinkSave(id) {
   const taskId = sel.value ? parseInt(sel.value) : null;
   const taskName = taskId ? (tasks.find(t => t.id === taskId) || {}).name || null : null;
   b.taskId = taskId; b.taskName = taskName;
+  const picker = document.getElementById('blkr-lp-' + id);
+  if (picker) picker.remove();
   blockerSave();
   blockerRender();
 }
