@@ -3712,6 +3712,7 @@ let pomoRemaining = 60*60;
 let pomoTotal = 60*60;
 let pomoRunning = false;
 let pomoTicker = null;
+let pomoLastTickAt = 0; // wall-clock ms up to which elapsed time has been counted
 let pomoCountUp = localStorage.getItem('jhtt_pomo_countup') === '1';
 let pomoSession = 0;
 let pomoLog = JSON.parse(localStorage.getItem(POMO_LOG_KEY) || '[]');
@@ -3810,7 +3811,7 @@ function pomoRestoreState() {
       pomoArmNoiseResume();    // fallback: browsers otherwise block audio until a user gesture
       setTimeout(() => { if (pomoActx && pomoActx.state === 'suspended') showToast('🔇 Background sound paused — click anywhere to resume'); }, 300);
     }
-    pomoTicker = setInterval(pomoTick, 1000);
+    pomoStartTicker();
   } else {
     pomoRunning = false;
     if (pb) pb.textContent = '▶';
@@ -3928,6 +3929,8 @@ function pomoSetMode(m, autoStart=false) {
 
 function pomoToggle() {
   if (pomoRunning) {
+    pomoTick(); // catch up on time a throttled interval hasn't counted yet
+    if (!pomoRunning) return; // a break may have just ended during catch-up
     clearInterval(pomoTicker); pomoRunning = false;
     const pb = document.getElementById('pomo-playbtn');
     if (pb) pb.textContent = '▶';
@@ -3946,27 +3949,41 @@ function pomoToggle() {
     const db = document.getElementById('pomo-done-btn');
     if (db) db.style.display = 'none';
     if (pomoMode === 'focus') pomoResumeNoise(); else pomoStopNoise();
-    pomoTicker = setInterval(pomoTick, 1000);
+    pomoStartTicker();
   }
   pomoSaveState();
 }
 
 // The per-second tick, extracted so it can be resumed after a page refresh
 // (pomoRestoreState) as well as started fresh from pomoToggle.
+// Time is measured from the wall clock, not by counting ticks: browsers throttle
+// setInterval in background tabs (down to ~1/min in Chrome) unless the tab is
+// playing audio — so without white noise, tick-counting silently lost time.
+function pomoStartTicker() {
+  pomoLastTickAt = Date.now();
+  pomoTicker = setInterval(pomoTick, 1000);
+}
+
 function pomoTick() {
+  const delta = Math.floor((Date.now() - pomoLastTickAt) / 1000);
+  if (delta <= 0) return;
+  pomoLastTickAt += delta * 1000;
   if (pomoMode === 'focus' && pomoOvertime) {
-    pomoOvertimeSec++;
+    pomoOvertimeSec += delta;
     pomoUpdateDisplay(); pomoUpdateRing();
     pomoSaveState();
     return;
   }
-  pomoRemaining--;
-  pomoUpdateDisplay(); pomoUpdateRing();
+  pomoRemaining -= delta;
   if (pomoRemaining <= 0) {
     if (pomoMode === 'focus') {
       // Estimate reached — ease into overtime instead of hard-stopping.
+      const over = -pomoRemaining;
+      pomoRemaining = 0;
       pomoEnterOvertime();
+      pomoOvertimeSec = over;
     } else {
+      pomoRemaining = 0;
       clearInterval(pomoTicker); pomoRunning = false;
       const pb = document.getElementById('pomo-playbtn');
       if (pb) pb.textContent = '▶';
@@ -3974,6 +3991,7 @@ function pomoTick() {
       pomoOnSessionEnd();
     }
   }
+  pomoUpdateDisplay(); pomoUpdateRing();
   pomoSaveState();
 }
 
@@ -4041,6 +4059,7 @@ function pomoFinishFocusSession(elapsedSec, wasOvertime) {
 
 function pomoDoneEarly() {
   if (!pomoSessionStartTime) return;
+  if (pomoRunning) pomoTick(); // catch up before measuring elapsed time
   clearInterval(pomoTicker); pomoRunning = false;
   const pb = document.getElementById('pomo-playbtn');
   if (pb) pb.textContent = '▶';
