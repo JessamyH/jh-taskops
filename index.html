@@ -7007,13 +7007,44 @@ function itemLinkPickerOpen(kind, id) {
   const picker = document.createElement('div');
   picker.className = 'backlog-link-picker';
   picker.id = pid;
-  if (kind === 'daily') { picker.style.right = '0'; picker.style.top = '100%'; }
   picker.onclick = e => e.stopPropagation();
   picker.innerHTML = '<select id="' + pid + '-sel" data-prev="' + (item.taskId || '') + '" onchange="tagInputFollowProject(this,\'' + pid + '-tag\')"><option value="">Link to project (optional)</option>' + taskOptions + '</select>'
     + '<input id="' + pid + '-tag" list="tag-suggestions" placeholder="Tag (optional)" value="' + escHtml(itemTag(item) || '') + '" onkeydown="if(event.key===\'Enter\')itemLinkPickerSave(\'' + kind + '\',' + id + ')">'
     + '<div class="backlog-link-picker-btns"><button onclick="document.getElementById(\'' + pid + '\').remove()">Cancel</button><button class="blp-save" onclick="itemLinkPickerSave(\'' + kind + '\',' + id + ')">Save</button></div>';
-  anchor.parentElement.style.position = 'relative';
-  anchor.parentElement.appendChild(picker);
+  placeFloatingPicker(picker, anchor);
+}
+
+// Pickers live on <body> with fixed coords so scrolling lists (Backlog, Blockers)
+// can't clip them. Opens below the anchor, flips above when there's no room, and
+// closes on outside click or any scroll (fixed coords would drift otherwise).
+function placeFloatingPicker(picker, anchor) {
+  picker.style.position = 'fixed';
+  picker.style.visibility = 'hidden';
+  document.body.appendChild(picker);
+  const a = anchor.getBoundingClientRect(), p = picker.getBoundingClientRect(), m = 8;
+  const left = Math.max(m, Math.min(a.right - p.width, window.innerWidth - p.width - m));
+  let top = a.bottom + 6;
+  if (top + p.height > window.innerHeight - m && a.top - 6 - p.height >= m) top = a.top - 6 - p.height;
+  picker.style.left = left + 'px';
+  picker.style.top = top + 'px';
+  picker.style.visibility = '';
+  const cleanup = () => {
+    document.removeEventListener('mousedown', onDown, true);
+    window.removeEventListener('scroll', onScroll, true);
+    window.removeEventListener('resize', close);
+  };
+  const close = () => { picker.remove(); cleanup(); };
+  const onDown = e => {
+    if (!picker.isConnected) return cleanup();
+    if (!picker.contains(e.target) && !anchor.contains(e.target)) close();
+  };
+  const onScroll = e => {
+    if (!picker.isConnected) return cleanup();
+    if (!(e.target instanceof Node && picker.contains(e.target))) close();
+  };
+  document.addEventListener('mousedown', onDown, true);
+  window.addEventListener('scroll', onScroll, true);
+  window.addEventListener('resize', close);
 }
 
 function itemLinkPickerSave(kind, id) {
@@ -7029,6 +7060,8 @@ function itemLinkPickerSave(kind, id) {
     item.taskName = taskName;
     item.tag = (tagInp && tagInp.value.trim()) || null;
   }
+  const picker = document.getElementById(pid);
+  if (picker) picker.remove();
   dailySave();
   dailyRender();
 }
@@ -7871,8 +7904,7 @@ function blockerLinkTask(id) {
   picker.className = 'backlog-link-picker blocker-link-picker';
   picker.id = 'blkr-lp-' + id;
   picker.innerHTML = `<select id="blkr-lp-sel-${id}"><option value="">Link to project (optional)</option>${taskOptions}</select><div class="backlog-link-picker-btns"><button onclick="document.getElementById('blkr-lp-${id}').remove()">Cancel</button><button class="blp-save" onclick="blockerLinkSave(${id})">Save</button></div>`;
-  btn.parentElement.style.position = 'relative';
-  btn.parentElement.appendChild(picker);
+  placeFloatingPicker(picker, btn);
 }
 
 function blockerLinkSave(id) {
@@ -7883,6 +7915,8 @@ function blockerLinkSave(id) {
   const taskId = sel.value ? parseInt(sel.value) : null;
   const taskName = taskId ? (tasks.find(t => t.id === taskId) || {}).name || null : null;
   b.taskId = taskId; b.taskName = taskName;
+  const picker = document.getElementById('blkr-lp-' + id);
+  if (picker) picker.remove();
   blockerSave();
   blockerRender();
 }
