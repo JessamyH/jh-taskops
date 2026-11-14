@@ -1710,6 +1710,56 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
   </div>
 </div>
 
+<!-- Daily Item Edit Modal -->
+<div class="modal-overlay" id="daily-edit-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div class="modal-title">Edit Task</div>
+      <button class="modal-close" onclick="closeDailyEdit()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Task</label>
+      <input class="form-input" id="de-text" placeholder="What needs doing?" onkeydown="if(event.key==='Enter')saveDailyEdit()">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Project</label>
+        <select class="form-select" id="de-task" onchange="tagInputFollowProject(this,'de-tag')"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tag</label>
+        <input class="form-input" id="de-tag" list="tag-suggestions" placeholder="Tag (optional)" maxlength="40" onfocus="updateTagDatalist()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Estimate (min)</label>
+        <input class="form-input" id="de-est" type="number" min="1" max="1440" placeholder="e.g. 45">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Link</label>
+        <input class="form-input" id="de-link" type="url" placeholder="https://…">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="de-notes" placeholder="Details, context, next steps…" style="min-height:80px"></textarea>
+    </div>
+    <div class="form-group" style="display:flex;gap:18px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text)">
+        <input type="checkbox" id="de-starred" style="width:15px;height:15px;accent-color:var(--sage);cursor:pointer"> Starred
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text)">
+        <input type="checkbox" id="de-done" style="width:15px;height:15px;accent-color:var(--sage);cursor:pointer"> Done
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeDailyEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDailyEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- AI Date Range Modal -->
 <div class="modal-overlay" id="ai-date-modal">
   <div class="modal" style="max-width:420px">
@@ -6514,6 +6564,7 @@ function backlogAutoSchedule() {
       taskName: item.taskName || null,
       tag: itemTag(item),
       link: item.link || null,
+      notes: item.notes || null,
       estMins: item.estMins || null,
       done: false,
       ts: new Date().toISOString()
@@ -6817,6 +6868,61 @@ function dailyToggle(id) {
   dailyRender();
 }
 
+// ── Daily item edit modal: the card's ✎ button opens every field for editing
+let _deItemId = null;
+
+function openDailyEdit(id) {
+  const item = dailyItems.find(i => i.id === id);
+  if (!item) return;
+  _deItemId = id;
+  document.getElementById('de-text').value = item.text || '';
+  const sel = document.getElementById('de-task');
+  const cur = item.taskId ? String(item.taskId) : '';
+  // Keep the current project listed even if it's done, so saving doesn't silently unlink it
+  sel.innerHTML = '<option value="">— None (Others) —</option>' +
+    tasks.filter(t => t.status !== 'done' || String(t.id) === cur)
+      .map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('');
+  sel.value = cur;
+  sel.dataset.prev = sel.value;
+  document.getElementById('de-tag').value = itemTag(item) || '';
+  document.getElementById('de-est').value = item.estMins || '';
+  document.getElementById('de-link').value = item.link || '';
+  document.getElementById('de-notes').value = item.notes || '';
+  document.getElementById('de-starred').checked = !!item.starred;
+  document.getElementById('de-done').checked = !!item.done;
+  document.querySelectorAll('.daily-link-popup').forEach(el => el.remove());
+  document.getElementById('daily-edit-modal').classList.add('open');
+  setTimeout(() => document.getElementById('de-text').focus(), 50);
+}
+
+function closeDailyEdit() {
+  document.getElementById('daily-edit-modal').classList.remove('open');
+  _deItemId = null;
+}
+
+function saveDailyEdit() {
+  const item = dailyItems.find(i => i.id === _deItemId);
+  if (!item) { closeDailyEdit(); return; }
+  const text = document.getElementById('de-text').value.trim();
+  if (!text) { showToast('Task can\'t be empty'); return; }
+  const estRaw = parseInt(document.getElementById('de-est').value);
+  const taskId = parseInt(document.getElementById('de-task').value) || null;
+  const task = taskId ? tasks.find(t => t.id === taskId) : null;
+  item.text = text;
+  item.taskId = task ? task.id : null;
+  item.taskName = task ? task.name : null;
+  item.tag = document.getElementById('de-tag').value.trim() || null;
+  item.estMins = estRaw > 0 ? estRaw : null;
+  item.link = document.getElementById('de-link').value.trim() || null;
+  item.notes = document.getElementById('de-notes').value.trim() || null;
+  item.starred = document.getElementById('de-starred').checked;
+  item.done = document.getElementById('de-done').checked;
+  dailySave();
+  dailyRender();
+  closeDailyEdit();
+  showToast('✅ Task updated');
+}
+
 function dailyDropToBacklog(e) {
   e.preventDefault();
   if (!_dailyDragId) return;
@@ -6848,7 +6954,7 @@ function dailyMoveToBacklog(id) {
   const item = dailyItems.find(i => i.id === id);
   if (!item) return;
   dailyItems = dailyItems.filter(i => i.id !== id);
-  backlogItems.unshift({ id: Date.now(), text: item.text, taskId: item.taskId || null, taskName: item.taskName || null, tag: itemTag(item), link: item.link || null, estMins: item.estMins || null, ts: new Date().toISOString() });
+  backlogItems.unshift({ id: Date.now(), text: item.text, taskId: item.taskId || null, taskName: item.taskName || null, tag: itemTag(item), link: item.link || null, notes: item.notes || null, estMins: item.estMins || null, ts: new Date().toISOString() });
   dailySave();
   dailyRender();
   showToast('Moved to backlog');
@@ -6953,6 +7059,7 @@ function dailyDropToTomorrow(e) {
         taskName: item.taskName || null,
         tag: itemTag(item),
         link: item.link || null,
+        notes: item.notes || null,
         estMins: item.estMins || null,
         done: false,
         ts: new Date().toISOString()
@@ -6988,6 +7095,7 @@ function dailyMoveToToday(id) {
     taskName: item.taskName || null,
     tag: itemTag(item),
     link: item.link || null,
+    notes: item.notes || null,
     estMins: item.estMins || null,
     done: false,
     ts: new Date().toISOString()
@@ -7570,14 +7678,14 @@ function dailyRender() {
     return `<div class="daily-item${isRollover?' rollover':''}${item.done?' done':''}${item.starred?' starred-item':''}" id="ditem-${item.id}" draggable="true" ondragstart="dailyDragStart(event,${item.id})" ondragover="dailyDragOver(event,${item.id})" ondragleave="dailyDragLeave(event)" ondrop="dailyDrop(event,${item.id})" ondragend="dailyDragEnd(event)">
       <div class="daily-check${item.done?' checked':''}" onclick="dailyToggle(${item.id})"></div>
       <div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0">
-        <span class="daily-item-text" ondblclick="dailyInlineEdit(${item.id})" title="Double-click to edit">${item.text} ${pomoHtml} ${logHtml} ${starHtml} ${linkHtml}</span>
+        <span class="daily-item-text" ondblclick="dailyInlineEdit(${item.id})" title="Double-click to rename">${item.text} ${pomoHtml} ${logHtml} ${starHtml} ${linkHtml}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         ${estHtml}
         ${tagHtml}
         <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
           <div style="display:flex;gap:4px;margin-right:3px">
-            <button class="daily-item-edit" onclick="dailyInlineEdit(${item.id})" title="Edit">✎</button>
+            <button class="daily-item-edit" onclick="openDailyEdit(${item.id})" title="Edit">✎</button>
             <button class="daily-item-del" onclick="dailyDelete(${item.id})">✕</button>
           </div>
           <div style="display:flex;gap:4px;width:100%;justify-content:flex-end">
