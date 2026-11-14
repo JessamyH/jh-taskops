@@ -1526,6 +1526,10 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
             </div>
             <div class="pomo-task-cur" id="pomo-task-cur"></div>
             <div style="margin-top:10px">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase;margin-bottom:5px">Tag</div>
+              <input class="pomo-task-select" id="pomo-session-tag" type="text" list="tag-suggestions" placeholder="Tag (optional)" maxlength="40" style="width:100%;box-sizing:border-box" onfocus="updateTagDatalist()" oninput="pomoSaveState()">
+            </div>
+            <div style="margin-top:10px">
               <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase;margin-bottom:5px">Note</div>
               <div style="position:relative">
                 <div style="display:flex;gap:6px;align-items:center">
@@ -1662,6 +1666,10 @@ body{background:var(--bg);color:var(--text);font-family:'Lato',sans-serif;font-w
       <select class="form-select" id="me-task">
         <option value="">— None (logged as Others) —</option>
       </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tag</label>
+      <input class="form-input" id="me-tag" list="tag-suggestions" placeholder="Tag (optional)" maxlength="40" onfocus="updateTagDatalist()">
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -2310,7 +2318,14 @@ function goToPomodoro(taskId, taskName, itemText, estMins, dailyItemId) {
   const sel = document.getElementById('pomo-task-sel');
   if (sel) {
     sel.value = taskId ? String(taskId) : '';
+    sel.dataset.prev = sel.value;
     pomoRenderNoteChips();
+  }
+  // Tag defaults to the Daily item's own tag, falling back to the project's
+  const tagEl = document.getElementById('pomo-session-tag');
+  if (tagEl) {
+    const item = dailyItemId ? dailyItems.find(i => i.id === dailyItemId) : null;
+    tagEl.value = (item ? itemTag(item) : projectTag(taskId)) || '';
   }
   // Pre-fill note with item text
   const noteEl = document.getElementById('pomo-session-note');
@@ -2335,6 +2350,8 @@ function goToPomodoro(taskId, taskName, itemText, estMins, dailyItemId) {
 function pomoTaskSelChanged() {
   // Manually switching the task means this session is no longer tied to the Daily item that launched it
   pomoLinkedDailyItemId = null;
+  const sel = document.getElementById('pomo-task-sel');
+  if (sel) tagInputFollowProject(sel, 'pomo-session-tag');
   pomoRenderNoteChips();
   pomoSaveState();
 }
@@ -2403,13 +2420,12 @@ function tagInputFollowProject(sel, inputId) {
   if (inp) inp.value = tagAfterProjectChange(inp.value.trim(), oldId, newId) || '';
   sel.dataset.prev = sel.value;
 }
-// Tag for a focus session logged from a Daily List item. Undefined (not stored)
-// when there's no item or its project was changed, so reports fall back to the project.
-function sessionTagFor(dailyItemId, taskId) {
-  const item = dailyItemId != null ? dailyItems.find(i => i.id === dailyItemId) : null;
-  if (!item || (item.taskId || null) !== (taskId || null)) return undefined;
-  return itemTag(item);
+// Tag chosen in the Pomodoro panel for the session in progress (null = untagged).
+function pomoCurrentTag() {
+  const el = document.getElementById('pomo-session-tag');
+  return (el && el.value.trim()) || null;
 }
+// Sessions logged before tags were editable have no `tag` field and fall back to the project's tags.
 function sessionTags(e) {
   if (e.tag !== undefined) return e.tag ? [e.tag] : [];
   const t = tasks.find(x => x.id === e.taskId) || tasks.find(x => x.name === e.taskName);
@@ -3731,6 +3747,7 @@ function pomoSaveState() {
   if (idle) { localStorage.removeItem(POMO_STATE_KEY); return; }
   const noteEl = document.getElementById('pomo-session-note');
   const taskSel = document.getElementById('pomo-task-sel');
+  const tagEl = document.getElementById('pomo-session-tag');
   const state = {
     mode: pomoMode,
     remaining: pomoRemaining,
@@ -3742,6 +3759,7 @@ function pomoSaveState() {
     session: pomoSession,
     linkedDailyItemId: pomoLinkedDailyItemId,
     taskId: taskSel ? taskSel.value : '',
+    tag: tagEl ? tagEl.value : '',
     note: noteEl ? noteEl.value : '',
     savedAt: Date.now()
   };
@@ -3790,6 +3808,9 @@ function pomoRestoreState() {
   pomoPopulateTaskSelect();
   const sel = document.getElementById('pomo-task-sel');
   if (sel && s.taskId) sel.value = s.taskId;
+  if (sel) sel.dataset.prev = sel.value;
+  const tagEl = document.getElementById('pomo-session-tag');
+  if (tagEl) tagEl.value = s.tag !== undefined ? s.tag : (projectTag(parseInt(s.taskId) || null) || '');
   const noteEl = document.getElementById('pomo-session-note');
   if (noteEl && s.note) noteEl.value = s.note;
   pomoUpdateSettingsBtnState();
@@ -4002,7 +4023,7 @@ function pomoFinishFocusSession(elapsedSec, wasOvertime) {
     mins: mins,
     taskId: taskId,
     taskName: taskName,
-    tag: sessionTagFor(pomoLinkedDailyItemId, taskId),
+    tag: pomoCurrentTag(),
     note: note,
     ts: (pomoSessionStartTime || new Date()).toISOString()
   };
@@ -4377,7 +4398,7 @@ function pomoRenderLog() {
     return `<div class="pomo-log-item" id="plog-${e.id}">
       <span class="pomo-log-dot" style="background:${color}"></span>
       <div class="pomo-log-info">
-        <div class="pomo-log-task">${e.taskName || 'Others'}${manualTag}</div>
+        <div class="pomo-log-task">${e.taskName || 'Others'}${e.type === 'focus' ? sessionTags(e).map(tg => `<span class="kcard-tag ${tagColorClass(tg)}" style="margin-left:6px">${escHtml(tg)}</span>`).join('') : ''}${manualTag}</div>
         <div class="pomo-log-meta">${date} · ${time}${e.type === 'focus' && e.mins ? ' · ' + e.mins + 'min' : ''}</div>
         ${noteTag}
       </div>
@@ -4404,6 +4425,7 @@ function pomoEditEntry(id) {
   openManualEntry({
     editId: id,
     taskId: entry.taskId != null ? entry.taskId : null,
+    tag: sessionTags(entry)[0] || '',
     note: entry.note || '',
     mins: entry.mins || 60,
     date: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'),
@@ -5031,6 +5053,7 @@ function pomoInit() {
 // ── Manual Entry
 let _meDailyItemId = null;
 let _meEditId = null;
+let _meOrigTag = ''; // tag shown when the modal opened, to tell an edit apart from an untouched fallback
 // prefill (optional): { taskId, note, mins, date, time, itemId, editId } — used when jumping
 // in from the Daily List (task/estimate/text carry over) or when editing an existing session
 // log entry (editId set, so Save updates that entry instead of creating a new one).
@@ -5050,8 +5073,12 @@ function openManualEntry(prefill) {
   const cur = prefill ? (prefill.taskId != null ? String(prefill.taskId) : '') : sel.value;
   sel.innerHTML = '<option value="">— None (logged as Others) —</option>' +
     tasks.map(t => `<option value="${t.id}"${String(t.id)===cur?' selected':''}>${t.name}</option>`).join('');
-  sel.onchange = meRenderNoteChips;
+  sel.dataset.prev = sel.value;
+  sel.onchange = () => { tagInputFollowProject(sel, 'me-tag'); meRenderNoteChips(); };
   meRenderNoteChips();
+  const tagEl = document.getElementById('me-tag');
+  tagEl.value = (prefill && prefill.tag !== undefined) ? (prefill.tag || '') : (projectTag(sel.value ? parseInt(sel.value) : null) || '');
+  _meOrigTag = tagEl.value;
   _meDailyItemId = (prefill && prefill.itemId) || null;
   const doneRow = document.getElementById('me-done-row');
   const doneChk = document.getElementById('me-mark-done');
@@ -5078,6 +5105,7 @@ function dailyLogTime(id) {
   const today = dailyLocalDate();
   openManualEntry({
     taskId: item.taskId || null,
+    tag: itemTag(item) || '',
     note: item.text,
     mins: item.estMins || 60,
     date: item.date <= today ? item.date : today,
@@ -5160,6 +5188,7 @@ function saveManualEntry() {
   const taskSel = document.getElementById('me-task');
   const taskId = taskSel.value ? parseInt(taskSel.value) : null;
   const note = document.getElementById('me-note').value.trim();
+  const tag = document.getElementById('me-tag').value.trim() || null;
 
   if (!minsRaw || minsRaw < 1) { showToast('Please enter a valid duration'); return; }
   if (!dateVal) { showToast('Please select a date'); return; }
@@ -5171,7 +5200,8 @@ function saveManualEntry() {
     const entry = pomoLog.find(e => e.id === _meEditId);
     if (entry) {
       entry.mins = minsRaw;
-      if (entry.taskId !== taskId) delete entry.tag; // project changed: tag follows the new project
+      // Leave legacy entries (no `tag` field, multi-tag project fallback) alone unless something changed
+      if (entry.tag !== undefined || entry.taskId !== taskId || (tag || '') !== _meOrigTag) entry.tag = tag;
       entry.taskId = taskId;
       entry.taskName = taskName;
       entry.note = note || '';
@@ -5190,7 +5220,7 @@ function saveManualEntry() {
     mins: minsRaw,
     taskId: taskId,
     taskName: taskName,
-    tag: sessionTagFor(_meDailyItemId, taskId),
+    tag: tag,
     note: note || '',
     manual: true,
     ts: new Date(tsStr).toISOString()
